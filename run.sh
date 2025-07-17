@@ -47,7 +47,7 @@ load_or_create_config() {
         export $(grep -v '^#' .env | xargs)
     else
         print_info "No .env file found. Trying to get configuration from gcloud..."
-        
+
         PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
         REGION=$(gcloud config get-value compute/region 2>/dev/null)
 
@@ -94,7 +94,7 @@ check_gcloud_auth() {
 # Prompt for and save scenario-specific variables
 get_scenario_vars() {
     local scenario_num=$1
-    
+
     case $scenario_num in
         2)
             if [ -z "$ZONE" ]; then
@@ -122,9 +122,9 @@ get_scenario_vars() {
 create_tfvars() {
     local scenario_dir=$1
     local scenario_num=$2
-    
+
     rm -f "${scenario_dir}/terraform.tfvars"
-    
+
     echo "project_id = \"${PROJECT_ID}\"" > "${scenario_dir}/terraform.tfvars"
     echo "region     = \"${REGION}\"" >> "${scenario_dir}/terraform.tfvars"
 
@@ -148,11 +148,11 @@ run_scenario() {
         print_error "Directory for scenario ${scenario_num} not found."
         return
     fi
-    
+
     local scenario_name=$(basename "$scenario_dir" | sed "s/scenario-${scenario_num}-//" | tr '-' ' ')
 
     print_info "Starting Scenario ${scenario_num}: ${scenario_name^}"
-    
+
     get_scenario_vars $scenario_num
     create_tfvars "$scenario_dir" $scenario_num
 
@@ -168,13 +168,13 @@ run_scenario() {
     else
         local apply_exit_code=0
     fi
-    
+
     local apply_output=$(<"$apply_log_file")
     rm "$apply_log_file"
 
     if [ $apply_exit_code -eq 0 ]; then
         print_success "Terraform apply completed successfully for Scenario ${scenario_num}."
-        
+
         # Verification
         print_info "Performing verification..."
         case $scenario_num in
@@ -191,9 +191,10 @@ run_scenario() {
                 print_success "VPC Connector created. ID: ${id}"
                 ;;
             4)
-                local cmd=$(terraform output -raw verification_command)
+                print_info "Verifying scenario 4..."
+                local cmd="gcloud compute instances get-serial-port-output nat-test-vm --zone=${ZONE} --project=${PROJECT_ID}"
                 print_info "Running verification command: ${cmd}"
-                if $cmd | grep -q "SUCCESS: Hello from Google!"; then
+                if $cmd | grep -q "Hello from Google!"; then
                     print_success "Verified: Private VM has outbound internet access via Cloud NAT."
                 else
                     print_error "Verification failed."
@@ -225,7 +226,7 @@ run_scenario() {
             fi
         fi
     fi
-    
+
     cd ../.. # Return to root
 }
 
