@@ -1,27 +1,29 @@
 #!/bin/bash
 
-# Color definitions
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
 # --- Helper Functions ---
 
 # Function to print error messages
 print_error() {
-    echo -e "${RED}ERROR: $1${NC}"
+    echo
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo "[ERROR] $1"
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo
 }
 
 # Function to print success messages
 print_success() {
-    echo -e "${GREEN}SUCCESS: $1${NC}"
+    echo "**************************************"
+    echo "[SUCCESS] $1"
+    echo "**************************************"
 }
 
 # Function to print info messages
 print_info() {
-    echo -e "${BLUE}INFO: $1${NC}"
+    echo
+    echo "--------------------------------------"
+    echo "[INFO] $1"
+    echo "--------------------------------------"
 }
 
 # --- Prerequisite and Configuration Functions ---
@@ -191,6 +193,8 @@ run_scenario() {
                 print_success "VPC Connector created. ID: ${id}"
                 ;;
             4)
+                print_info "Waiting for Cloud NAT to be ready..."
+                sleep 60
                 print_info "Verifying scenario 4..."
                 local cmd="gcloud compute instances get-serial-port-output nat-test-vm --zone=${ZONE} --project=${PROJECT_ID}"
                 print_info "Running verification command: ${cmd}"
@@ -214,7 +218,9 @@ run_scenario() {
         fi
     else
         print_error "Terraform apply failed for Scenario ${scenario_num}."
-        echo -e "${YELLOW}${apply_output}${NC}"
+        echo "--- Terraform Output ---"
+        echo "${apply_output}"
+        echo "------------------------"
         read -p "Do you want to run the cleanup script (cleanup.sh)? (y/n) " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
@@ -235,12 +241,13 @@ run_scenario() {
 # Display the main menu
 main_menu() {
     while true; do
-        echo -e "\n${YELLOW}--- GCP Diagnostic Scenarios ---${NC}"
+        echo
+        echo "--- GCP Diagnostic Scenarios ---"
         echo "1. Scenario 1: Cloud Run + GCS"
         echo "2. Scenario 2: GCE + External LB"
         echo "3. Scenario 3: VPC Connector"
         echo "4. Scenario 4: Private GCE + Cloud NAT"
-        echo "9. ${RED}Destroy Resources Menu${NC}"
+        echo "9. Destroy Resources Menu"
         echo "0. Exit"
         read -p "Select an option: " choice
 
@@ -264,7 +271,8 @@ main_menu() {
 # Display the destroy menu
 destroy_menu() {
      while true; do
-        echo -e "\n${RED}--- Destroy Resources ---${NC}"
+        echo
+        echo "--- Destroy Resources ---"
         echo "1. Destroy Scenario 1"
         echo "2. Destroy Scenario 2"
         echo "3. Destroy Scenario 3"
