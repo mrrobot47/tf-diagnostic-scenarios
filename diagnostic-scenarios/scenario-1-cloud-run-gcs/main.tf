@@ -39,8 +39,23 @@ resource "google_cloud_run_v2_service" "hello_world" {
 
   template {
     service_account = google_service_account.test_sa.email
+
+    volumes {
+      name = "gcs-bucket"
+      gcs {
+        bucket = google_storage_bucket.test_bucket.name
+        read_only = false
+      }
+    }
+
     containers {
       image = "gcr.io/cloudrun/hello"
+
+      volume_mounts {
+        name = "gcs-bucket"
+        mount_path = "/mnt/bucket"
+      }
+
       env {
         name  = "BUCKET_NAME"
         value = google_storage_bucket.test_bucket.name
