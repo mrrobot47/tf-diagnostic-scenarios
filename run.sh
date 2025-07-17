@@ -40,19 +40,39 @@ check_dependencies() {
     print_success "All dependencies are installed."
 }
 
-# Load config from .env file or prompt user if it doesn't exist
+# Load config from .env file, gcloud config, or prompt user
 load_or_create_config() {
     if [ -f ".env" ]; then
         print_info "Loading configuration from .env file."
         export $(grep -v '^#' .env | xargs)
     else
-        print_info "No .env file found. Let's set up the configuration."
-        read -p "Enter your GCP Project ID: " PROJECT_ID
-        read -p "Enter the default GCP Region (e.g., us-central1): " REGION
+        print_info "No .env file found. Trying to get configuration from gcloud..."
+        
+        PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
+        REGION=$(gcloud config get-value compute/region 2>/dev/null)
+
+        if [ -z "$PROJECT_ID" ]; then
+            print_info "Could not determine Project ID from gcloud config."
+            read -p "Enter your GCP Project ID: " PROJECT_ID
+        else
+            print_success "Auto-detected Project ID: ${PROJECT_ID}"
+        fi
+
+        if [ -z "$REGION" ]; then
+            print_info "Could not determine Region from gcloud config."
+            read -p "Enter the default GCP Region (e.g., us-central1): " REGION
+        else
+            print_success "Auto-detected Region: ${REGION}"
+        fi
+
+        if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ]; then
+            print_error "Project ID and Region are required. Exiting."
+            exit 1
+        fi
 
         echo "PROJECT_ID=${PROJECT_ID}" > .env
         echo "REGION=${REGION}" >> .env
-        print_success "Configuration saved to .env file."
+        print_success "Configuration saved to .env file for future runs."
         export PROJECT_ID
         export REGION
     fi
@@ -259,8 +279,8 @@ destroy_menu() {
 
 # --- Main Execution ---
 check_dependencies
-load_or_create_config
 check_gcloud_auth
+load_or_create_config
 main_menu
 
 print_info

@@ -1,9 +1,18 @@
 #!/bin/bash
 echo "This script provides a fallback for a failed 'terraform destroy'."
-echo "Please enter the required values."
 
-read -p "Enter your Project ID: " PROJECT_ID
-read -p "Enter the Zone (e.g., us-central1-a): " ZONE
+# Load from .env if available
+if [ -f "../../.env" ]; then
+    export $(grep -v '^#' ../../.env | xargs)
+fi
+
+# Prompt only if not set
+if [ -z "$PROJECT_ID" ]; then
+    read -p "Enter your Project ID: " PROJECT_ID
+fi
+if [ -z "$ZONE" ]; then
+    read -p "Enter the Zone (e.g., us-central1-a): " ZONE
+fi
 
 echo "--- Deleting Forwarding Rule ---"
 gcloud compute forwarding-rules delete lb-test-forwarding-rule --global --project=${PROJECT_ID} --quiet

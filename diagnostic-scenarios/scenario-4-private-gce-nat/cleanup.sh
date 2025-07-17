@@ -1,10 +1,21 @@
 #!/bin/bash
 echo "This script provides a fallback for a failed 'terraform destroy'."
-echo "Please enter the required values."
 
-read -p "Enter your Project ID: " PROJECT_ID
-read -p "Enter the Region (e.g., us-central1): " REGION
-read -p "Enter the Zone (e.g., us-central1-a): " ZONE
+# Load from .env if available
+if [ -f "../../.env" ]; then
+    export $(grep -v '^#' ../../.env | xargs)
+fi
+
+# Prompt only if not set
+if [ -z "$PROJECT_ID" ]; then
+    read -p "Enter your Project ID: " PROJECT_ID
+fi
+if [ -z "$REGION" ]; then
+    read -p "Enter the Region (e.g., us-central1): " REGION
+fi
+if [ -z "$ZONE" ]; then
+    read -p "Enter the Zone (e.g., us-central1-a): " ZONE
+fi
 
 VM_NAME="nat-test-vm"
 NAT_NAME="nat-test-gateway"
