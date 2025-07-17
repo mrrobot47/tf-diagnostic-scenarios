@@ -142,15 +142,21 @@ create_tfvars() {
 # Run a specific scenario
 run_scenario() {
     local scenario_num=$1
-    local scenario_dir="diagnostic-scenarios/scenario-${scenario_num}"
-    local scenario_name=$(echo $scenario_dir | cut -d'-' -f2- | tr '-' ' ')
+    local scenario_dir=$(ls -d diagnostic-scenarios/scenario-${scenario_num}-* | head -n 1)
+
+    if [ -z "$scenario_dir" ] || [ ! -d "$scenario_dir" ]; then
+        print_error "Directory for scenario ${scenario_num} not found."
+        return
+    fi
+    
+    local scenario_name=$(basename "$scenario_dir" | sed "s/scenario-${scenario_num}-//" | tr '-' ' ')
 
     print_info "Starting Scenario ${scenario_num}: ${scenario_name^}"
     
     get_scenario_vars $scenario_num
-    create_tfvars $scenario_dir $scenario_num
+    create_tfvars "$scenario_dir" $scenario_num
 
-    cd $scenario_dir
+    cd "$scenario_dir"
 
     print_info "Running 'terraform init'..."
     terraform init -upgrade >/dev/null
@@ -259,15 +265,15 @@ destroy_menu() {
         read -p "Select a scenario to destroy: " choice
 
         if [[ "$choice" -ge 1 && "$choice" -le 4 ]]; then
-            local scenario_dir="diagnostic-scenarios/scenario-${choice}"
-            if [ -d "$scenario_dir" ]; then
+            local scenario_dir=$(ls -d diagnostic-scenarios/scenario-${choice}-* | head -n 1)
+            if [ -n "$scenario_dir" ] && [ -d "$scenario_dir" ]; then
                 print_info "Destroying resources for Scenario ${choice}..."
-                cd $scenario_dir
+                cd "$scenario_dir"
                 terraform destroy -auto-approve
                 cd ../..
                 print_success "Destroy operation finished for Scenario ${choice}."
             else
-                print_error "Directory ${scenario_dir} not found."
+                print_error "Directory for scenario ${choice} not found."
             fi
         elif [ "$choice" -eq 0 ]; then
             break
@@ -278,6 +284,8 @@ destroy_menu() {
 }
 
 # --- Main Execution ---
+cd "$(dirname "$0")" || exit
+
 check_dependencies
 check_gcloud_auth
 load_or_create_config
