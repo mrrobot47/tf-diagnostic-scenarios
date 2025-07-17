@@ -109,6 +109,13 @@ get_scenario_vars() {
     local scenario_num=$1
 
     case $scenario_num in
+        1)
+            if [ -z "$USER_EMAIL" ]; then
+                read -p "Enter the User Email for Cloud Run access: " USER_EMAIL
+                echo "USER_EMAIL=${USER_EMAIL}" >> .env
+                export USER_EMAIL
+            fi
+            ;;
         2)
             if [ -z "$ZONE" ]; then
                 read -p "Enter the Zone for the GCE instance (e.g., us-central1-a): " ZONE
@@ -142,6 +149,9 @@ create_tfvars() {
     echo "region     = \"${REGION}\"" >> "${scenario_dir}/terraform.tfvars"
 
     case $scenario_num in
+        1)
+            echo "user_email = \"${USER_EMAIL}\"" >> "${scenario_dir}/terraform.tfvars"
+            ;;
         2)
             echo "zone        = \"${ZONE}\"" >> "${scenario_dir}/terraform.tfvars"
             echo "domain_name = \"${DOMAIN_NAME}\"" >> "${scenario_dir}/terraform.tfvars"

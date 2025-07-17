@@ -75,7 +75,7 @@ resource "google_cloud_run_v2_service" "hello_world" {
 data "google_iam_policy" "noauth" {
   binding {
     role    = "roles/run.invoker"
-    members = ["allUsers"]
+    members = ["user:${var.user_email}"]
   }
 }
 
