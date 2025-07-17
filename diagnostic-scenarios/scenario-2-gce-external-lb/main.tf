@@ -15,7 +15,12 @@ resource "google_compute_instance" "test_vm" {
   name         = "lb-test-vm"
   machine_type = "e2-micro"
   zone         = var.zone
+  allow_stopping_for_update = true
   tags         = ["http-health-check"]
+
+  service_account {
+    scopes = ["cloud-platform"]
+  }
 
   boot_disk {
     initialize_params {
@@ -28,7 +33,8 @@ resource "google_compute_instance" "test_vm" {
   }
 
   metadata = {
-    "gce-container-declaration" = "spec:\n  containers:\n    - name: hello-app\n      image: gcr.io/google-samples/hello-app:1.0\n      stdin: false\n      tty: false\n  restartPolicy: Always"
+    "gce-container-declaration" = "spec:\n  containers:\n    - name: hello-app\n      image: gcr.io/google-samples/hello-app:1.0\n      ports:\n        - containerPort: 8080\n          hostPort: 8080\n      stdin: false\n      tty: false\n  restartPolicy: Always",
+    "startup-script" = "#!/bin/bash\ncurl -sS --fail https://www.google.com > /dev/null && echo 'SUCCESS: Internet access is available.' || echo 'FAILURE: No internet access.'"
   }
 }
 
@@ -89,6 +95,20 @@ resource "google_compute_global_forwarding_rule" "forwarding_rule" {
   port_range = "443"
 }
 
+resource "google_compute_router" "router" {
+  name    = "lb-test-router"
+  network = "default"
+  region  = "us-central1"
+}
+
+resource "google_compute_router_nat" "nat" {
+  name                               = "lb-test-nat"
+  router                             = google_compute_router.router.name
+  region                             = google_compute_router.router.region
+  source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
+  nat_ip_allocate_option             = "AUTO_ONLY"
+}
+
 resource "google_compute_firewall" "allow_health_check" {
   name    = "allow-lb-health-check-test"
   network = "default"
@@ -97,5 +117,16 @@ resource "google_compute_firewall" "allow_health_check" {
     ports    = ["8080"]
   }
   source_ranges = ["130.211.0.0/22", "35.191.0.0/16"]
+  target_tags   = ["http-health-check"]
+}
+
+resource "google_compute_firewall" "allow_lb_traffic" {
+  name    = "allow-lb-traffic-test"
+  network = "default"
+  allow {
+    protocol = "tcp"
+    ports    = ["8080"]
+  }
+  source_ranges = ["0.0.0.0/0"]
   target_tags   = ["http-health-check"]
 }
