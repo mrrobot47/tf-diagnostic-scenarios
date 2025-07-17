@@ -20,6 +20,9 @@ resource "google_project_service" "run_api" {
 resource "google_storage_bucket" "test_bucket" {
   name     = "${var.project_id}-test-bucket"
   location = var.region
+
+  public_access_prevention = "enforced"
+  uniform_bucket_level_access = true
 }
 
 resource "google_service_account" "test_sa" {
