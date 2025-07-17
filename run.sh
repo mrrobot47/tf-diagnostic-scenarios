@@ -116,7 +116,7 @@ get_scenario_vars() {
                 export ZONE
             fi
             if [ -z "$DOMAIN_NAME" ]; then
-                read -p "Enter a domain name for the SSL certificate (e.g., example.com): " DOMAIN_NAME
+                read -p "Enter a domain name (e.g., example.com): " DOMAIN_NAME
                 echo "DOMAIN_NAME=${DOMAIN_NAME}" >> .env
                 export DOMAIN_NAME
             fi
