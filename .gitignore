@@ -1,0 +1,29 @@
+# Terraform state and backup files
+*.tfstate
+*.tfstate.*
+*.backup
+
+# Terraform directories
+.terraform/
+
+# Terraform lock file
+.terraform.lock.hcl
+
+# Sensitive environment/config files
+.env
+
+# Output and log files
+*.log
+
+# Editor/OS files
+*.swp
+*.swo
+*.bak
+*~
+.DS_Store
+
+# Ignore scenario-specific state and backup files
+diagnostic-scenarios/scenario-*/terraform.tfvars
+diagnostic-scenarios/scenario-*/terraform.tfstate
+diagnostic-scenarios/scenario-*/terraform.tfstate.*
+diagnostic-scenarios/scenario-*/.terraform/
