@@ -53,18 +53,26 @@ load_or_create_config() {
         PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
         REGION=$(gcloud config get-value compute/region 2>/dev/null)
 
-        if [ -z "$PROJECT_ID" ]; then
+        if [ -n "$PROJECT_ID" ]; then
+            read -p "Auto-detected Project ID: ${PROJECT_ID}. Use this? (y/n): " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                read -p "Enter your GCP Project ID: " PROJECT_ID
+            fi
+        else
             print_info "Could not determine Project ID from gcloud config."
             read -p "Enter your GCP Project ID: " PROJECT_ID
-        else
-            print_success "Auto-detected Project ID: ${PROJECT_ID}"
         fi
 
-        if [ -z "$REGION" ]; then
+        if [ -n "$REGION" ]; then
+            read -p "Auto-detected Region: ${REGION}. Use this? (y/n): " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                read -p "Enter the default GCP Region (e.g., us-central1): " REGION
+            fi
+        else
             print_info "Could not determine Region from gcloud config."
             read -p "Enter the default GCP Region (e.g., us-central1): " REGION
-        else
-            print_success "Auto-detected Region: ${REGION}"
         fi
 
         if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ]; then
