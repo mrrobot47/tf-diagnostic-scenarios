@@ -162,8 +162,15 @@ run_scenario() {
     terraform init -upgrade >/dev/null
 
     print_info "Running 'terraform apply'..."
-    apply_output=$(terraform apply -auto-approve 2>&1)
-    local apply_exit_code=$?
+    local apply_log_file=$(mktemp)
+    if ! terraform apply -auto-approve 2>&1 | tee "$apply_log_file"; then
+        local apply_exit_code=${PIPESTATUS[0]}
+    else
+        local apply_exit_code=0
+    fi
+    
+    local apply_output=$(<"$apply_log_file")
+    rm "$apply_log_file"
 
     if [ $apply_exit_code -eq 0 ]; then
         print_success "Terraform apply completed successfully for Scenario ${scenario_num}."
