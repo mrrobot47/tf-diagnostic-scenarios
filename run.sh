@@ -111,7 +111,18 @@ get_scenario_vars() {
     case $scenario_num in
         1)
             if [ -z "$USER_EMAIL" ]; then
-                read -p "Enter the User Email for Cloud Run access: " USER_EMAIL
+                local gcloud_email=$(gcloud config get-value account 2>/dev/null)
+                if [ -n "$gcloud_email" ]; then
+                    read -p "Auto-detected email: ${gcloud_email}. Use this? (y/n): " -n 1 -r
+                    echo
+                    if [[ $REPLY =~ ^[Yy]$ ]]; then
+                        USER_EMAIL=$gcloud_email
+                    else
+                        read -p "Enter the User Email for Cloud Run access: " USER_EMAIL
+                    fi
+                else
+                    read -p "Enter the User Email for Cloud Run access: " USER_EMAIL
+                fi
                 echo "USER_EMAIL=${USER_EMAIL}" >> .env
                 export USER_EMAIL
             fi
