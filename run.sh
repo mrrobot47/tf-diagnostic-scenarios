@@ -69,6 +69,9 @@ load_or_create_config() {
             echo
             if [[ ! $REPLY =~ ^[Yy]$ ]]; then
                 read -p "Enter the default GCP Region (e.g., us-central1): " REGION
+                if [[ -z "$REGION" ]]; then
+                    REGION="us-central1"
+                fi
             fi
         else
             print_info "Could not determine Region from gcloud config."
