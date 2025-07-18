@@ -31,11 +31,11 @@ print_info() {
 # Check for required command-line tools
 check_dependencies() {
     print_info "Checking dependencies..."
-    if ! command -v terraform &> /dev/null; then
+    if ! command -v terraform > /dev/null 2>&1; then
         print_error "Terraform could not be found. Please install it first."
         exit 1
     fi
-    if ! command -v gcloud &> /dev/null; then
+    if ! command -v gcloud > /dev/null 2>&1; then
         print_error "gcloud could not be found. Please install it first."
         exit 1
     fi
@@ -46,36 +46,54 @@ check_dependencies() {
 load_or_create_config() {
     if [ -f ".env" ]; then
         print_info "Loading configuration from .env file."
-        export $(grep -v '^#' .env | xargs)
+        set -a
+        source .env
+        set +a
     else
         print_info "No .env file found. Trying to get configuration from gcloud..."
 
+        PROJECT_ID=""
         PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
+        REGION=""
         REGION=$(gcloud config get-value compute/region 2>/dev/null)
 
         if [ -n "$PROJECT_ID" ]; then
-            read -p "Auto-detected Project ID: ${PROJECT_ID}. Use this? (y/n): " -n 1 -r
-            echo
-            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                read -p "Enter your GCP Project ID: " PROJECT_ID
-            fi
+            while true; do
+                read -p "Auto-detected Project ID: ${PROJECT_ID}. Use this? (y/n): " -n 1 -r
+                echo
+                if [ "$REPLY" = "y" ] || [ "$REPLY" = "Y" ]; then
+                    break
+                elif [ "$REPLY" = "n" ] || [ "$REPLY" = "N" ]; then
+                    read -r -p "Enter your GCP Project ID: " PROJECT_ID
+                    break
+                else
+                    echo "Please enter 'y' or 'n' only."
+                fi
+            done
         else
             print_info "Could not determine Project ID from gcloud config."
-            read -p "Enter your GCP Project ID: " PROJECT_ID
+            read -r -p "Enter your GCP Project ID: " PROJECT_ID
         fi
 
         if [ -n "$REGION" ]; then
-            read -p "Auto-detected Region: ${REGION}. Use this? (y/n): " -n 1 -r
-            echo
-            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                read -p "Enter the default GCP Region (e.g., us-central1): " REGION
-                if [[ -z "$REGION" ]]; then
-                    REGION="us-central1"
+            while true; do
+                read -p "Auto-detected Region: ${REGION}. Use this? (y/n): " -n 1 -r
+                echo
+                if [ "$REPLY" = "y" ] || [ "$REPLY" = "Y" ]; then
+                    break
+                elif [ "$REPLY" = "n" ] || [ "$REPLY" = "N" ]; then
+                    read -r -p "Enter the default GCP Region (e.g., us-central1): " REGION
+                    if [ -z "$REGION" ]; then
+                        REGION="us-central1"
+                    fi
+                    break
+                else
+                    echo "Please enter 'y' or 'n' only."
                 fi
-            fi
+            done
         else
             print_info "Could not determine Region from gcloud config."
-            read -p "Enter the default GCP Region (e.g., us-central1): " REGION
+            read -r -p "Enter the default GCP Region (e.g., us-central1): " REGION
         fi
 
         if [ -z "$PROJECT_ID" ] || [ -z "$REGION" ]; then
@@ -98,7 +116,8 @@ check_gcloud_auth() {
         print_error "You are not authenticated with gcloud. Please run 'gcloud auth login' and 'gcloud config set project <YOUR_PROJECT_ID>'."
         exit 1
     fi
-    local active_account=$(gcloud auth list --filter=status:ACTIVE --format="value(account)")
+    local active_account
+    active_account=$(gcloud auth list --filter=status:ACTIVE --format="value(account)")
     print_success "Authenticated with gcloud as: ${active_account}"
 }
 
@@ -111,17 +130,24 @@ get_scenario_vars() {
     case $scenario_num in
         1)
             if [ -z "$USER_EMAIL" ]; then
-                local gcloud_email=$(gcloud config get-value account 2>/dev/null)
+                local gcloud_email
+                gcloud_email=$(gcloud config get-value account 2>/dev/null)
                 if [ -n "$gcloud_email" ]; then
-                    read -p "Auto-detected email: ${gcloud_email}. Use this? (y/n): " -n 1 -r
-                    echo
-                    if [[ $REPLY =~ ^[Yy]$ ]]; then
-                        USER_EMAIL=$gcloud_email
-                    else
-                        read -p "Enter the User Email for Cloud Run access: " USER_EMAIL
-                    fi
+                    while true; do
+                        read -p "Auto-detected email: ${gcloud_email}. Use this? (y/n): " -n 1 -r
+                        echo
+                        if [ "$REPLY" = "y" ] || [ "$REPLY" = "Y" ]; then
+                            USER_EMAIL=$gcloud_email
+                            break
+                        elif [ "$REPLY" = "n" ] || [ "$REPLY" = "N" ]; then
+                            read -r -p "Enter the User Email for Cloud Run access: " USER_EMAIL
+                            break
+                        else
+                            echo "Please enter 'y' or 'n' only."
+                        fi
+                    done
                 else
-                    read -p "Enter the User Email for Cloud Run access: " USER_EMAIL
+                    read -r -p "Enter the User Email for Cloud Run access: " USER_EMAIL
                 fi
                 echo "USER_EMAIL=${USER_EMAIL}" >> .env
                 export USER_EMAIL
@@ -129,23 +155,23 @@ get_scenario_vars() {
             ;;
         2)
             if [ -z "$ZONE" ]; then
-                read -p "Enter the Zone for the GCE instance (e.g., us-central1-a): " ZONE
-                if [[ -z "$ZONE" ]]; then
+                read -r -p "Enter the Zone for the GCE instance (e.g., us-central1-a): " ZONE
+                if [ -z "$ZONE" ]; then
                     ZONE="${REGION}-a"
                 fi
                 echo "ZONE=${ZONE}" >> .env
                 export ZONE
             fi
             if [ -z "$DOMAIN_NAME" ]; then
-                read -p "Enter a domain name (e.g., example.com): " DOMAIN_NAME
+                read -r -p "Enter a domain name (e.g., example.com): " DOMAIN_NAME
                 echo "DOMAIN_NAME=${DOMAIN_NAME}" >> .env
                 export DOMAIN_NAME
             fi
             ;;
         4)
             if [ -z "$ZONE" ]; then
-                read -p "Enter the Zone for the GCE instance (e.g., us-central1-a): " ZONE
-                if [[ -z "$ZONE" ]]; then
+                read -r -p "Enter the Zone for the GCE instance (e.g., us-central1-a): " ZONE
+                if [ -z "$ZONE" ]; then
                     ZONE="${REGION}-a"
                 fi
                 echo "ZONE=${ZONE}" >> .env
@@ -182,34 +208,41 @@ create_tfvars() {
 # Run a specific scenario
 run_scenario() {
     local scenario_num=$1
-    local scenario_dir=$(ls -d diagnostic-scenarios/scenario-${scenario_num}-* | head -n 1)
+    local scenario_dir
+    scenario_dir=$(find diagnostic-scenarios -maxdepth 1 -type d -name "scenario-${scenario_num}-*" | head -n 1)
 
     if [ -z "$scenario_dir" ] || [ ! -d "$scenario_dir" ]; then
         print_error "Directory for scenario ${scenario_num} not found."
         return
     fi
 
-    local scenario_name=$(basename "$scenario_dir" | sed "s/scenario-${scenario_num}-//" | tr '-' ' ')
+    local scenario_name
+    scenario_name=$(basename "$scenario_dir" | sed "s/scenario-${scenario_num}-//" | tr '-' ' ')
+    # Capitalize first letter for older bash compatibility
+    local first_char
+    first_char=$(echo "$scenario_name" | cut -c1 | tr '[:lower:]' '[:upper:]')
+    local rest_chars
+    rest_chars=$(echo "$scenario_name" | cut -c2-)
+    local capitalized_name="${first_char}${rest_chars}"
 
-    print_info "Starting Scenario ${scenario_num}: ${scenario_name^}"
+    print_info "Starting Scenario ${scenario_num}: ${capitalized_name}"
 
-    get_scenario_vars $scenario_num
-    create_tfvars "$scenario_dir" $scenario_num
+    get_scenario_vars "$scenario_num"
+    create_tfvars "$scenario_dir" "$scenario_num"
 
-    cd "$scenario_dir"
+    cd "$scenario_dir" || return
 
     print_info "Running 'terraform init'..."
     terraform init -upgrade >/dev/null
 
     print_info "Running 'terraform apply'..."
-    local apply_log_file=$(mktemp)
-    if ! terraform apply -auto-approve 2>&1 | tee "$apply_log_file"; then
-        local apply_exit_code=${PIPESTATUS[0]}
-    else
-        local apply_exit_code=0
-    fi
+    local apply_log_file
+    apply_log_file=$(mktemp)
+    terraform apply -auto-approve 2>&1 | tee "$apply_log_file"
+    local apply_exit_code=$?
 
-    local apply_output=$(<"$apply_log_file")
+    local apply_output
+    apply_output=$(cat "$apply_log_file")
     rm "$apply_log_file"
 
     if [ $apply_exit_code -eq 0 ]; then
@@ -219,15 +252,18 @@ run_scenario() {
         print_info "Performing verification..."
         case $scenario_num in
             1)
-                local url=$(terraform output -raw cloud_run_service_url)
+                local url
+                url=$(terraform output -raw cloud_run_service_url)
                 print_success "Cloud Run service deployed. URL: ${url}"
                 ;;
             2)
-                local ip=$(terraform output -raw load_balancer_ip)
+                local ip
+                ip=$(terraform output -raw load_balancer_ip)
                 print_success "External Load Balancer created. IP: ${ip}"
                 ;;
             3)
-                local id=$(terraform output -raw connector_id)
+                local id
+                id=$(terraform output -raw connector_id)
                 print_success "VPC Connector created. ID: ${id}"
                 ;;
             4)
@@ -236,7 +272,7 @@ run_scenario() {
                 print_info "Verifying scenario 4..."
                 local cmd="gcloud compute instances get-serial-port-output test-sc-4-vm --zone=${ZONE} --project=${PROJECT_ID}"
                 print_info "Running verification command: ${cmd}"
-                if $cmd | grep -q "Hello from Google!"; then
+                if eval "$cmd" | grep -q "Hello from Google!"; then
                     print_success "Verified: Private VM has outbound internet access via Cloud NAT."
                 else
                     print_error "Verification failed."
@@ -247,31 +283,45 @@ run_scenario() {
                 ;;
         esac
 
-        read -p "Do you want to destroy the resources now? (y/n) " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            print_info "Running 'terraform destroy'..."
-            terraform destroy -auto-approve
-            print_success "Scenario ${scenario_num} resources destroyed."
-        fi
+        while true; do
+            read -p "Do you want to destroy the resources now? (y/n) " -n 1 -r
+            echo
+            if [ "$REPLY" = "y" ] || [ "$REPLY" = "Y" ]; then
+                print_info "Running 'terraform destroy'..."
+                terraform destroy -auto-approve
+                print_success "Scenario ${scenario_num} resources destroyed."
+                break
+            elif [ "$REPLY" = "n" ] || [ "$REPLY" = "N" ]; then
+                break
+            else
+                echo "Please enter 'y' or 'n' only."
+            fi
+        done
     else
         print_error "Terraform apply failed for Scenario ${scenario_num}."
         echo "--- Terraform Output ---"
         echo "${apply_output}"
         echo "------------------------"
-        read -p "Do you want to run the cleanup script (cleanup.sh)? (y/n) " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            if [ -f "cleanup.sh" ]; then
-                print_info "Running cleanup.sh..."
-                bash cleanup.sh
+        while true; do
+            read -p "Do you want to run the cleanup script (cleanup.sh)? (y/n) " -n 1 -r
+            echo
+            if [ "$REPLY" = "y" ] || [ "$REPLY" = "Y" ]; then
+                if [ -f "cleanup.sh" ]; then
+                    print_info "Running cleanup.sh..."
+                    bash cleanup.sh
+                else
+                    print_error "cleanup.sh not found in this directory."
+                fi
+                break
+            elif [ "$REPLY" = "n" ] || [ "$REPLY" = "N" ]; then
+                break
             else
-                print_error "cleanup.sh not found in this directory."
+                echo "Please enter 'y' or 'n' only."
             fi
-        fi
+        done
     fi
 
-    cd ../.. # Return to root
+    cd ../.. || exit # Return to root
 }
 
 # --- UI / Menus ---
@@ -287,11 +337,11 @@ main_menu() {
         echo "4. Scenario 4: Private GCE + Cloud NAT"
         echo "9. Destroy Resources Menu"
         echo "0. Exit"
-        read -p "Select an option: " choice
+        read -r -p "Select an option: " choice
 
         case $choice in
             1|2|3|4)
-                run_scenario $choice
+                run_scenario "$choice"
                 ;;
             9)
                 destroy_menu
@@ -316,15 +366,16 @@ destroy_menu() {
         echo "3. Destroy Scenario 3"
         echo "4. Destroy Scenario 4"
         echo "0. Back to Main Menu"
-        read -p "Select a scenario to destroy: " choice
+        read -r -p "Select a scenario to destroy: " choice
 
-        if [[ "$choice" -ge 1 && "$choice" -le 4 ]]; then
-            local scenario_dir=$(ls -d diagnostic-scenarios/scenario-${choice}-* | head -n 1)
+        if [ "$choice" -ge 1 ] && [ "$choice" -le 4 ]; then
+            local scenario_dir
+            scenario_dir=$(find diagnostic-scenarios -maxdepth 1 -type d -name "scenario-${choice}-*" | head -n 1)
             if [ -n "$scenario_dir" ] && [ -d "$scenario_dir" ]; then
                 print_info "Destroying resources for Scenario ${choice}..."
-                cd "$scenario_dir"
+                cd "$scenario_dir" || return
                 terraform destroy -auto-approve
-                cd ../..
+                cd ../.. || exit
                 print_success "Destroy operation finished for Scenario ${choice}."
             else
                 print_error "Directory for scenario ${choice} not found."
