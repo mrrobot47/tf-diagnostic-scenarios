@@ -11,13 +11,13 @@ provider "google" {
   project = var.project_id
 }
 
-resource "google_project_service" "run_api" {
+resource "google_project_service" "cloud_run_api" {
   project = var.project_id
   service = "run.googleapis.com"
   disable_on_destroy = false
 }
 
-resource "google_storage_bucket" "test_bucket" {
+resource "google_storage_bucket" "cloud_run_gcs_bucket" {
   name     = "${var.project_id}-test-sc-1-bucket"
   location = var.region
 
@@ -25,28 +25,28 @@ resource "google_storage_bucket" "test_bucket" {
   uniform_bucket_level_access = true
 }
 
-resource "google_service_account" "test_sa" {
+resource "google_service_account" "cloud_run_service_account" {
   account_id   = "test-sc-1-sa"
   display_name = "Test Scenario 1 Service Account"
 }
 
 resource "google_storage_bucket_iam_member" "gcs_access" {
-  bucket = google_storage_bucket.test_bucket.name
+  bucket = google_storage_bucket.cloud_run_gcs_bucket.name
   role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.test_sa.email}"
+  member = "serviceAccount:${google_service_account.cloud_run_service_account.email}"
 }
 
-resource "google_cloud_run_v2_service" "hello_world" {
+resource "google_cloud_run_v2_service" "cloud_run_hello_service" {
   name     = "test-sc-1-service"
   location = var.region
 
   template {
-    service_account = google_service_account.test_sa.email
+    service_account = google_service_account.cloud_run_service_account.email
 
     volumes {
       name = "gcs-bucket"
       gcs {
-        bucket = google_storage_bucket.test_bucket.name
+        bucket = google_storage_bucket.cloud_run_gcs_bucket.name
         read_only = false
       }
     }
@@ -61,27 +61,27 @@ resource "google_cloud_run_v2_service" "hello_world" {
 
       env {
         name  = "BUCKET_NAME"
-        value = google_storage_bucket.test_bucket.name
+        value = google_storage_bucket.cloud_run_gcs_bucket.name
       }
     }
   }
 
   depends_on = [
     google_storage_bucket_iam_member.gcs_access,
-    google_project_service.run_api
+    google_project_service.cloud_run_api
   ]
 }
 
-data "google_iam_policy" "noauth" {
+data "google_iam_policy" "public_access_policy" {
   binding {
     role    = "roles/run.invoker"
     members = ["user:${var.user_email}"]
   }
 }
 
-resource "google_cloud_run_v2_service_iam_policy" "noauth" {
-  project  = google_cloud_run_v2_service.hello_world.project
-  location = google_cloud_run_v2_service.hello_world.location
-  name     = google_cloud_run_v2_service.hello_world.name
-  policy_data = data.google_iam_policy.noauth.policy_data
+resource "google_cloud_run_v2_service_iam_policy" "cloud_run_public_access" {
+  project  = google_cloud_run_v2_service.cloud_run_hello_service.project
+  location = google_cloud_run_v2_service.cloud_run_hello_service.location
+  name     = google_cloud_run_v2_service.cloud_run_hello_service.name
+  policy_data = data.google_iam_policy.public_access_policy.policy_data
 }

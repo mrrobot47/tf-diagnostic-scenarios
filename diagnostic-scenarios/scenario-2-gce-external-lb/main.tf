@@ -11,7 +11,7 @@ provider "google" {
   project = var.project_id
 }
 
-resource "google_compute_instance" "test_vm" {
+resource "google_compute_instance" "web_server_vm" {
   name         = "test-sc-2-vm"
   machine_type = "e2-micro"
   zone         = var.zone
@@ -38,73 +38,73 @@ resource "google_compute_instance" "test_vm" {
   }
 }
 
-resource "google_compute_instance_group" "test_ig" {
+resource "google_compute_instance_group" "web_server_instance_group" {
   name      = "test-sc-2-ig"
   zone      = var.zone
-  instances = [google_compute_instance.test_vm.id]
+  instances = [google_compute_instance.web_server_vm.id]
   named_port {
     name = "http"
     port = "8080"
   }
 }
 
-resource "google_compute_health_check" "http_check" {
+resource "google_compute_health_check" "web_server_health_check" {
   name               = "test-sc-2-health-check"
   http_health_check {
     port = "8080"
   }
 }
 
-resource "google_compute_backend_service" "backend" {
+resource "google_compute_backend_service" "web_server_backend_service" {
   name          = "test-sc-2-backend-service"
   protocol      = "HTTP"
   port_name     = "http"
-  health_checks = [google_compute_health_check.http_check.id]
+  health_checks = [google_compute_health_check.web_server_health_check.id]
 
   backend {
-    group = google_compute_instance_group.test_ig.id
+    group = google_compute_instance_group.web_server_instance_group.id
   }
 }
 
-resource "google_compute_url_map" "url_map" {
+resource "google_compute_url_map" "load_balancer_url_map" {
   name            = "test-sc-2-url-map"
-  default_service = google_compute_backend_service.backend.id
+  default_service = google_compute_backend_service.web_server_backend_service.id
 }
 
-resource "google_compute_managed_ssl_certificate" "ssl_cert" {
+resource "google_compute_managed_ssl_certificate" "load_balancer_ssl_certificate" {
   name    = "test-sc-2-ssl-cert"
   managed {
     domains = [var.domain_name]
   }
 }
 
-resource "google_compute_target_https_proxy" "https_proxy" {
+resource "google_compute_target_https_proxy" "load_balancer_https_proxy" {
   name             = "test-sc-2-https-proxy"
-  url_map          = google_compute_url_map.url_map.id
-  ssl_certificates = [google_compute_managed_ssl_certificate.ssl_cert.id]
+  url_map          = google_compute_url_map.load_balancer_url_map.id
+  ssl_certificates = [google_compute_managed_ssl_certificate.load_balancer_ssl_certificate.id]
 }
 
-resource "google_compute_global_address" "lb_ip" {
+resource "google_compute_global_address" "load_balancer_static_ip" {
   name = "test-sc-2-static-ip"
 }
 
-resource "google_compute_global_forwarding_rule" "forwarding_rule" {
+resource "google_compute_global_forwarding_rule" "load_balancer_forwarding_rule" {
   name       = "test-sc-2-forwarding-rule"
-  target     = google_compute_target_https_proxy.https_proxy.id
-  ip_address = google_compute_global_address.lb_ip.address
+  target     = google_compute_target_https_proxy.load_balancer_https_proxy.id
+  ip_address = google_compute_global_address.load_balancer_static_ip.address
   port_range = "443"
 }
 
-resource "google_compute_router" "router" {
+resource "google_compute_router" "nat_router" {
   name    = "test-sc-2-router"
   network = "default"
   region  = var.region
 }
 
-resource "google_compute_router_nat" "nat" {
+resource "google_compute_router_nat" "vm_nat_gateway" {
   name                               = "test-sc-2-nat"
-  router                             = google_compute_router.router.name
-  region                             = google_compute_router.router.region
+  router                             = google_compute_router.nat_router.name
+  region                             = google_compute_router.nat_router.region
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
   nat_ip_allocate_option             = "AUTO_ONLY"
 }

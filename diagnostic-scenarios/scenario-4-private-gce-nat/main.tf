@@ -11,41 +11,41 @@ provider "google" {
   project = var.project_id
 }
 
-resource "google_compute_network" "test_vpc" {
+resource "google_compute_network" "private_network" {
   name                    = "test-sc-4-network"
   auto_create_subnetworks = false
 }
 
-resource "google_compute_subnetwork" "test_subnet" {
+resource "google_compute_subnetwork" "private_subnet" {
   name                     = "test-sc-4-subnet"
   ip_cidr_range            = "10.0.10.0/24"
   region                   = var.region
-  network                  = google_compute_network.test_vpc.id
+  network                  = google_compute_network.private_network.id
   private_ip_google_access = true
 }
 
-resource "google_compute_router" "test_router" {
+resource "google_compute_router" "nat_router" {
   name    = "test-sc-4-router"
   region  = var.region
-  network = google_compute_network.test_vpc.id
+  network = google_compute_network.private_network.id
 }
 
-resource "google_compute_router_nat" "test_nat" {
+resource "google_compute_router_nat" "private_vm_nat_gateway" {
   name                               = "test-sc-4-nat"
-  router                             = google_compute_router.test_router.name
+  router                             = google_compute_router.nat_router.name
   region                             = var.region
   source_subnetwork_ip_ranges_to_nat = "LIST_OF_SUBNETWORKS"
   nat_ip_allocate_option             = "AUTO_ONLY"
 
   subnetwork {
-    name                    = google_compute_subnetwork.test_subnet.id
+    name                    = google_compute_subnetwork.private_subnet.id
     source_ip_ranges_to_nat = ["ALL_IP_RANGES"]
   }
 
-  depends_on = [google_compute_router.test_router]
+  depends_on = [google_compute_router.nat_router]
 }
 
-resource "google_compute_instance" "test_vm" {
+resource "google_compute_instance" "private_vm" {
   name         = "test-sc-4-vm"
   machine_type = "e2-micro"
   zone         = var.zone
@@ -59,8 +59,8 @@ resource "google_compute_instance" "test_vm" {
 
   # This instance has no public IP address
   network_interface {
-    network    = google_compute_network.test_vpc.id
-    subnetwork = google_compute_subnetwork.test_subnet.id
+    network    = google_compute_network.private_network.id
+    subnetwork = google_compute_subnetwork.private_subnet.id
   }
 
   metadata_startup_script = <<-EOT
@@ -80,5 +80,5 @@ resource "google_compute_instance" "test_vm" {
     create_before_destroy = true
   }
 
-  depends_on = [google_compute_router_nat.test_nat]
+  depends_on = [google_compute_router_nat.private_vm_nat_gateway]
 }
