@@ -27,3 +27,25 @@ diagnostic-scenarios/scenario-*/terraform.tfvars
 diagnostic-scenarios/scenario-*/terraform.tfstate
 diagnostic-scenarios/scenario-*/terraform.tfstate.*
 diagnostic-scenarios/scenario-*/.terraform/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Visual Studio Code
+.vscode/
+.settings/
+*.code-workspace
+
+# Eclipse
+.project
+.classpath
+bin/
+tmp/
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
