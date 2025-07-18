@@ -130,6 +130,9 @@ get_scenario_vars() {
         2)
             if [ -z "$ZONE" ]; then
                 read -p "Enter the Zone for the GCE instance (e.g., us-central1-a): " ZONE
+                if [[ -z "$ZONE" ]]; then
+                    ZONE="${REGION}-a"
+                fi
                 echo "ZONE=${ZONE}" >> .env
                 export ZONE
             fi
@@ -142,6 +145,9 @@ get_scenario_vars() {
         4)
             if [ -z "$ZONE" ]; then
                 read -p "Enter the Zone for the GCE instance (e.g., us-central1-a): " ZONE
+                if [[ -z "$ZONE" ]]; then
+                    ZONE="${REGION}-a"
+                fi
                 echo "ZONE=${ZONE}" >> .env
                 export ZONE
             fi
@@ -228,7 +234,7 @@ run_scenario() {
                 print_info "Waiting for Cloud NAT to be ready..."
                 sleep 60
                 print_info "Verifying scenario 4..."
-                local cmd="gcloud compute instances get-serial-port-output nat-test-vm --zone=${ZONE} --project=${PROJECT_ID}"
+                local cmd="gcloud compute instances get-serial-port-output test-sc-4-vm --zone=${ZONE} --project=${PROJECT_ID}"
                 print_info "Running verification command: ${cmd}"
                 if $cmd | grep -q "Hello from Google!"; then
                     print_success "Verified: Private VM has outbound internet access via Cloud NAT."
