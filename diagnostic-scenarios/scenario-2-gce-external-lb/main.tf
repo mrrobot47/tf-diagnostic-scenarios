@@ -12,7 +12,7 @@ provider "google" {
 }
 
 resource "google_compute_instance" "test_vm" {
-  name         = "lb-test-vm"
+  name         = "test-sc-2-vm"
   machine_type = "e2-micro"
   zone         = var.zone
   allow_stopping_for_update = true
@@ -39,7 +39,7 @@ resource "google_compute_instance" "test_vm" {
 }
 
 resource "google_compute_instance_group" "test_ig" {
-  name      = "lb-test-ig"
+  name      = "test-sc-2-ig"
   zone      = var.zone
   instances = [google_compute_instance.test_vm.id]
   named_port {
@@ -49,14 +49,14 @@ resource "google_compute_instance_group" "test_ig" {
 }
 
 resource "google_compute_health_check" "http_check" {
-  name               = "lb-test-http-health-check"
+  name               = "test-sc-2-health-check"
   http_health_check {
     port = "8080"
   }
 }
 
 resource "google_compute_backend_service" "backend" {
-  name          = "lb-test-backend-service"
+  name          = "test-sc-2-backend-service"
   protocol      = "HTTP"
   port_name     = "http"
   health_checks = [google_compute_health_check.http_check.id]
@@ -67,42 +67,42 @@ resource "google_compute_backend_service" "backend" {
 }
 
 resource "google_compute_url_map" "url_map" {
-  name            = "lb-test-url-map"
+  name            = "test-sc-2-url-map"
   default_service = google_compute_backend_service.backend.id
 }
 
 resource "google_compute_managed_ssl_certificate" "ssl_cert" {
-  name    = "lb-test-ssl-cert"
+  name    = "test-sc-2-ssl-cert"
   managed {
     domains = [var.domain_name]
   }
 }
 
 resource "google_compute_target_https_proxy" "https_proxy" {
-  name             = "lb-test-https-proxy"
+  name             = "test-sc-2-https-proxy"
   url_map          = google_compute_url_map.url_map.id
   ssl_certificates = [google_compute_managed_ssl_certificate.ssl_cert.id]
 }
 
 resource "google_compute_global_address" "lb_ip" {
-  name = "lb-test-static-ip"
+  name = "test-sc-2-static-ip"
 }
 
 resource "google_compute_global_forwarding_rule" "forwarding_rule" {
-  name       = "lb-test-forwarding-rule"
+  name       = "test-sc-2-forwarding-rule"
   target     = google_compute_target_https_proxy.https_proxy.id
   ip_address = google_compute_global_address.lb_ip.address
   port_range = "443"
 }
 
 resource "google_compute_router" "router" {
-  name    = "lb-test-router"
+  name    = "test-sc-2-router"
   network = "default"
-  region  = "us-central1"
+  region  = var.region
 }
 
 resource "google_compute_router_nat" "nat" {
-  name                               = "lb-test-nat"
+  name                               = "test-sc-2-nat"
   router                             = google_compute_router.router.name
   region                             = google_compute_router.router.region
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
@@ -110,7 +110,7 @@ resource "google_compute_router_nat" "nat" {
 }
 
 resource "google_compute_firewall" "allow_health_check" {
-  name    = "allow-lb-health-check-test"
+  name    = "test-sc-2-allow-health-check"
   network = "default"
   allow {
     protocol = "tcp"
@@ -121,7 +121,7 @@ resource "google_compute_firewall" "allow_health_check" {
 }
 
 resource "google_compute_firewall" "allow_lb_traffic" {
-  name    = "allow-lb-traffic-test"
+  name    = "test-sc-2-allow-lb-traffic"
   network = "default"
   allow {
     protocol = "tcp"

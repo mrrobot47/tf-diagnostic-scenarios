@@ -18,7 +18,7 @@ resource "google_project_service" "run_api" {
 }
 
 resource "google_storage_bucket" "test_bucket" {
-  name     = "${var.project_id}-test-bucket"
+  name     = "${var.project_id}-test-sc-1-bucket"
   location = var.region
 
   public_access_prevention = "enforced"
@@ -26,8 +26,8 @@ resource "google_storage_bucket" "test_bucket" {
 }
 
 resource "google_service_account" "test_sa" {
-  account_id   = "cloud-run-test-sa"
-  display_name = "Cloud Run Test Service Account"
+  account_id   = "test-sc-1-sa"
+  display_name = "Test Scenario 1 Service Account"
 }
 
 resource "google_storage_bucket_iam_member" "gcs_access" {
@@ -37,7 +37,7 @@ resource "google_storage_bucket_iam_member" "gcs_access" {
 }
 
 resource "google_cloud_run_v2_service" "hello_world" {
-  name     = "hello-world-test-service"
+  name     = "test-sc-1-service"
   location = var.region
 
   template {

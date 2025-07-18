@@ -12,12 +12,12 @@ provider "google" {
 }
 
 resource "google_compute_network" "test_vpc" {
-  name                    = "nat-test-network"
+  name                    = "test-sc-4-network"
   auto_create_subnetworks = false
 }
 
 resource "google_compute_subnetwork" "test_subnet" {
-  name                     = "nat-test-subnet"
+  name                     = "test-sc-4-subnet"
   ip_cidr_range            = "10.0.10.0/24"
   region                   = var.region
   network                  = google_compute_network.test_vpc.id
@@ -25,13 +25,13 @@ resource "google_compute_subnetwork" "test_subnet" {
 }
 
 resource "google_compute_router" "test_router" {
-  name    = "nat-test-router"
+  name    = "test-sc-4-router"
   region  = var.region
   network = google_compute_network.test_vpc.id
 }
 
 resource "google_compute_router_nat" "test_nat" {
-  name                               = "nat-test-gateway"
+  name                               = "test-sc-4-nat"
   router                             = google_compute_router.test_router.name
   region                             = var.region
   source_subnetwork_ip_ranges_to_nat = "LIST_OF_SUBNETWORKS"
@@ -46,7 +46,7 @@ resource "google_compute_router_nat" "test_nat" {
 }
 
 resource "google_compute_instance" "test_vm" {
-  name         = "nat-test-vm"
+  name         = "test-sc-4-vm"
   machine_type = "e2-micro"
   zone         = var.zone
   tags         = ["private-vm"]
