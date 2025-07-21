@@ -12,6 +12,9 @@
 # Sensitive environment/config files
 .env
 
+# Ignore all .tfvars files
+*.tfvars
+
 # Output and log files
 *.log
 
