@@ -52,4 +52,18 @@ gcloud compute addresses delete ${PRIVATE_IP_NAME} --global --project=${PROJECT_
 echo "--- Deleting VPC Network: ${VPC_NAME} ---"
 gcloud compute networks delete ${VPC_NAME} --project=${PROJECT_ID} --quiet || echo "VPC not found or already deleted."
 
+echo "--- Deleting Cloud NAT: test-sc-5-nat ---"
+gcloud compute routers nats delete test-sc-5-nat --router=test-sc-5-router --region=${REGION} --project=${PROJECT_ID} --quiet || echo "Cloud NAT not found or already deleted."
+
+echo "--- Deleting Cloud Router: test-sc-5-router ---"
+gcloud compute routers delete test-sc-5-router --region=${REGION} --project=${PROJECT_ID} --quiet || echo "Cloud Router not found or already deleted."
+
+echo "--- Deleting Service Networking VPC Connection ---"
+gcloud compute networks peerings delete servicenetworking-googleapis-com --network=${VPC_NAME} --project=${PROJECT_ID} --quiet || echo "VPC peering not found or already deleted."
+
+echo "--- Disabling APIs enabled for Scenario 5 ---"
+for api in run.googleapis.com sqladmin.googleapis.com compute.googleapis.com servicenetworking.googleapis.com; do
+    gcloud services disable $api --project=${PROJECT_ID} --quiet || echo "$api not disabled or already disabled."
+done
+
 echo "Cleanup attempt finished."
