@@ -17,7 +17,7 @@ if [ -z "$ZONE" ]; then
     read -p "Enter the Zone (e.g., us-central1-a): " ZONE
 fi
 
-VM_NAME="nat-test-vm"
+VM_NAME="test-sc-4-vm"
 NAT_NAME="nat-test-gateway"
 ROUTER_NAME="nat-test-router"
 SUBNET_NAME="nat-test-subnet"
