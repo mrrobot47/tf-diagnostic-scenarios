@@ -21,7 +21,7 @@ echo "Project: $PROJECT_ID"
 echo "Region:  $REGION"
 echo "-----------------------------------------------------"
 
-SERVICE_NAME="sql-direct-connect-test"
+SERVICE_NAME="test-sc-5-sql-direct-connect"
 DB_INSTANCE_NAME="test-sc-5-db"
 SA_EMAIL="test-sc-5-sa@${PROJECT_ID}.iam.gserviceaccount.com"
 # NOTE: The VPC Connector is no longer part of this cleanup

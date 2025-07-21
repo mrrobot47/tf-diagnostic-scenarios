@@ -95,6 +95,6 @@ A successful `terraform apply` will provision all the networking resources and a
 
 **To verify:**
 ```bash
-gcloud compute instances get-serial-port-output nat-test-vm --zone=<YOUR_ZONE> --project=<YOUR_PROJECT_ID>
+gcloud compute instances get-serial-port-output test-sc-4-vm --zone=<YOUR_ZONE> --project=<YOUR_PROJECT_ID>
 ```
 Look for a `"Hello from Google!"` message at the end of the log. This confirms that the startup script was able to successfully `curl` an external website, proving that the Cloud NAT gateway is working as expected. If the script fails with a connection timeout, it indicates a restriction on Cloud NAT or its associated resources.

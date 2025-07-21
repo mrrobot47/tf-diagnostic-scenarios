@@ -105,7 +105,7 @@ resource "google_project_iam_member" "sql_client" {
 }
 
 resource "google_cloud_run_v2_service" "test_service" {
-  name     = "sql-direct-connect-test"
+  name     = "test-sc-5-sql-direct-connect"
   location = var.region
 
   template {

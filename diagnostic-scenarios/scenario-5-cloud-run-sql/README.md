@@ -14,7 +14,7 @@ A successful `terraform apply` will deploy all resources. The definitive test is
 
 **To verify logs:**
 ```bash
-gcloud logging read "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"sql-direct-connect-test\" AND severity>=DEFAULT" --project=<YOUR_PROJECT_ID> --limit=10 --format='value(textPayload)'
+gcloud logging read "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"test-sc-5-sql-direct-connect\" AND severity>=DEFAULT" --project=<YOUR_PROJECT_ID> --limit=10 --format='value(textPayload)'
 ```
 Look for a log entry containing:
 ```
@@ -25,7 +25,7 @@ This confirms the networking path and IAM permissions are correctly configured. 
 **To verify via HTTP:**
 After deployment, get the service URL:
 ```bash
-gcloud run services describe sql-direct-connect-test --region=<YOUR_REGION> --project=<YOUR_PROJECT_ID> --format='value(status.url)'
+gcloud run services describe test-sc-5-sql-direct-connect --region=<YOUR_REGION> --project=<YOUR_PROJECT_ID> --format='value(status.url)'
 ```
 Then visit the URL in your browser or with curl, passing the Cloud Run identity header:
 ```bash
