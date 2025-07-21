@@ -27,7 +27,7 @@ SA_EMAIL="test-sc-5-sa@${PROJECT_ID}.iam.gserviceaccount.com"
 # NOTE: The VPC Connector is no longer part of this cleanup
 SUBNET_NAME="test-sc-5-subnet"
 VPC_NAME="test-sc-5-network"
-PRIVATE_IP_NAME="private-ip-for-sc-5"
+PRIVATE_IP_NAME="test-sc-5-private-ip"
 
 echo "--- Deleting Cloud Run Service: ${SERVICE_NAME} ---"
 gcloud run services delete ${SERVICE_NAME} --region=${REGION} --project=${PROJECT_ID} --quiet || echo "Service not found or already deleted."

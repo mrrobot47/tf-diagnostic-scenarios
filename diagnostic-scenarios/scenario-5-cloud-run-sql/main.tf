@@ -58,8 +58,8 @@ resource "google_compute_router_nat" "test_nat" {
   }
 }
 
-resource "google_compute_global_address" "private_ip_for_google_services" {
-  name          = "private-ip-for-sc-5"
+resource "google_compute_global_address" "test_sc_5_private_ip" {
+  name          = "test-sc-5-private-ip"
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   prefix_length = 16
@@ -69,7 +69,7 @@ resource "google_compute_global_address" "private_ip_for_google_services" {
 resource "google_service_networking_connection" "private_vpc_connection" {
   network                 = google_compute_network.test_vpc.id
   service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.private_ip_for_google_services.name]
+  reserved_peering_ranges = [google_compute_global_address.test_sc_5_private_ip.name]
 }
 
 resource "google_sql_database_instance" "test_db" {
