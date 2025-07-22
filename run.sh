@@ -221,6 +221,7 @@ create_tfvars() {
 # Run a specific scenario
 run_scenario() {
     local scenario_num=$1
+    local destroy_mode=${2:-prompt} # prompt, auto, skip
     local scenario_dir
     scenario_dir=$(find diagnostic-scenarios -maxdepth 1 -type d -name "scenario-${scenario_num}-*" | head -n 1)
 
@@ -328,20 +329,28 @@ run_scenario() {
                 ;;
         esac
 
-        while true; do
-            read -p "Do you want to destroy the resources now? (y/n) " -n 1 -r
-            echo
-            if [ "$REPLY" = "y" ] || [ "$REPLY" = "Y" ]; then
-                print_info "Running 'terraform destroy'..."
-                terraform destroy -auto-approve
-                print_success "Scenario ${scenario_num} resources destroyed."
-                break
-            elif [ "$REPLY" = "n" ] || [ "$REPLY" = "N" ]; then
-                break
-            else
-                echo "Please enter 'y' or 'n' only."
-            fi
-        done
+        if [ "$destroy_mode" = "auto" ]; then
+            print_info "Running 'terraform destroy'..."
+            terraform destroy -auto-approve
+            print_success "Scenario ${scenario_num} resources destroyed."
+        elif [ "$destroy_mode" = "skip" ]; then
+            print_info "Resources are kept as per --no-destroy flag."
+        else
+            while true; do
+                read -p "Do you want to destroy the resources now? (y/n) " -n 1 -r
+                echo
+                if [ "$REPLY" = "y" ] || [ "$REPLY" = "Y" ]; then
+                    print_info "Running 'terraform destroy'..."
+                    terraform destroy -auto-approve
+                    print_success "Scenario ${scenario_num} resources destroyed."
+                    break
+                elif [ "$REPLY" = "n" ] || [ "$REPLY" = "N" ]; then
+                    break
+                else
+                    echo "Please enter 'y' or 'n' only."
+                fi
+            done
+        fi
     else
         print_error "Terraform apply failed for Scenario ${scenario_num}."
         echo "--- Terraform Output ---"
@@ -368,6 +377,7 @@ run_scenario() {
 
     cd ../.. || exit # Return to root
 }
+
 
 # --- UI / Menus ---
 
@@ -444,9 +454,64 @@ destroy_menu() {
 # --- Main Execution ---
 cd "$(dirname "$0")" || exit
 
+# Argument parsing
+usage() {
+    echo "Usage: $0 [SCENARIO_NUMBER] [--destroy|--no-destroy]"
+    echo "  SCENARIO_NUMBER: 1-8 (optional, if omitted, menu is shown)"
+    echo "  --destroy: Destroys resources after successful deployment (optional)"
+    echo "  --no-destroy: Keeps resources and skips destroy prompt (optional)"
+    echo "  --destroy and --no-destroy are mutually exclusive."
+    exit 0
+}
+
+# Show help before any checks
+if [ $# -ge 1 ]; then
+    case $1 in
+        -h|--help|help)
+            usage
+            ;;
+    esac
+fi
+
 check_dependencies
 check_gcloud_auth
 load_or_create_config
-main_menu
+
+SCENARIO_NUM=""
+DESTROY_MODE="prompt" # prompt, auto, skip
+
+if [ $# -ge 1 ]; then
+    case $1 in
+        [1-8])
+            SCENARIO_NUM="$1"
+            ;;
+        *)
+            usage
+            ;;
+    esac
+    if [ $# -ge 2 ]; then
+        case $2 in
+            --destroy|destroy|DESTROY|--DESTROY)
+                DESTROY_MODE="auto"
+                ;;
+            --no-destroy|no-destroy|NO-DESTROY|--NO-DESTROY)
+                DESTROY_MODE="skip"
+                ;;
+            *)
+                usage
+                ;;
+        esac
+        if [ $# -ge 3 ]; then
+            # Only one of --destroy or --no-destroy allowed
+            usage
+        fi
+    fi
+fi
+
+if [ -n "$SCENARIO_NUM" ]; then
+    run_scenario "$SCENARIO_NUM" "$DESTROY_MODE"
+else
+    main_menu
+fi
 
 print_info
