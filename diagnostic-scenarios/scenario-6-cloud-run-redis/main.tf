@@ -24,29 +24,29 @@ resource "google_project_service" "apis" {
   disable_on_destroy = false
 }
 
-resource "google_compute_network" "test_vpc" {
-  name                    = "test-sc-6-network"
+resource "google_compute_network" "vpc" {
+  name                    = "test-sc-6-vpc"
   auto_create_subnetworks = false
   depends_on              = [google_project_service.apis]
 }
 
-resource "google_compute_subnetwork" "test_subnet" {
-  name          = "test-sc-6-subnet"
+resource "google_compute_subnetwork" "cloudrun_subnet" {
+  name          = "test-sc-6-cloudrun-subnet"
   ip_cidr_range = "10.8.0.0/24"
   region        = var.region
-  network       = google_compute_network.test_vpc.id
+  network       = google_compute_network.vpc.id
 }
 
 # Add Cloud NAT for internet access
-resource "google_compute_router" "test_router" {
-  name    = "test-sc-6-router"
+resource "google_compute_router" "nat_router" {
+  name    = "test-sc-6-nat-router"
   region  = var.region
-  network = google_compute_network.test_vpc.id
+  network = google_compute_network.vpc.id
 }
 
-resource "google_compute_router_nat" "test_nat" {
-  name   = "test-sc-6-nat"
-  router = google_compute_router.test_router.name
+resource "google_compute_router_nat" "internet_nat" {
+  name   = "test-sc-6-internet-nat"
+  router = google_compute_router.nat_router.name
   region = var.region
 
   nat_ip_allocate_option             = "AUTO_ONLY"
@@ -58,53 +58,53 @@ resource "google_compute_router_nat" "test_nat" {
   }
 }
 
-resource "google_compute_global_address" "private_ip_for_google_services" {
-  name          = "test-sc-6-private-ip"
+resource "google_compute_global_address" "private_service_access" {
+  name          = "test-sc-6-private-service-access"
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   prefix_length = 16
-  network       = google_compute_network.test_vpc.id
+  network       = google_compute_network.vpc.id
 }
 
-resource "google_service_networking_connection" "private_vpc_connection" {
-  network                 = google_compute_network.test_vpc.id
+resource "google_service_networking_connection" "vpc_peering" {
+  network                 = google_compute_network.vpc.id
   service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.private_ip_for_google_services.name]
+  reserved_peering_ranges = [google_compute_global_address.private_service_access.name]
   deletion_policy         = "ABANDON"
 }
 
-resource "google_redis_instance" "test_redis" {
-  name               = "test-sc-6-redis"
+resource "google_redis_instance" "redis_instance" {
+  name               = "test-sc-6-redis-instance"
   region             = var.region
   tier               = "BASIC"
   memory_size_gb     = 1
-  authorized_network = google_compute_network.test_vpc.id
+  authorized_network = google_compute_network.vpc.id
   connect_mode       = "PRIVATE_SERVICE_ACCESS"
-  depends_on         = [google_service_networking_connection.private_vpc_connection]
+  depends_on         = [google_service_networking_connection.vpc_peering]
 }
 
-resource "google_service_account" "test_sa" {
-  account_id   = "test-sc-6-sa"
-  display_name = "Test Scenario 6 Service Account"
+resource "google_service_account" "cloudrun_sa" {
+  account_id   = "test-sc-6-cloudrun-sa"
+  display_name = "Test Scenario 6 Cloud Run Service Account"
 }
 
-resource "google_project_iam_member" "redis_client" {
+resource "google_project_iam_member" "cloudrun_redis_access" {
   project = var.project_id
   role    = "roles/redis.viewer"
-  member  = "serviceAccount:${google_service_account.test_sa.email}"
+  member  = "serviceAccount:${google_service_account.cloudrun_sa.email}"
 }
 
-resource "google_cloud_run_v2_service" "test_service" {
-  name     = "test-sc-6-redis-direct-connect"
+resource "google_cloud_run_v2_service" "cloudrun_redis_connectivity_tester" {
+  name     = "test-sc-6-redis-connectivity-tester"
   location = var.region
 
   template {
-    service_account = google_service_account.test_sa.email
+    service_account = google_service_account.cloudrun_sa.email
 
     vpc_access {
       network_interfaces {
-        network    = google_compute_network.test_vpc.id
-        subnetwork = google_compute_subnetwork.test_subnet.id
+        network    = google_compute_network.vpc.id
+        subnetwork = google_compute_subnetwork.cloudrun_subnet.id
         tags       = ["cloud-run-service"]
       }
       egress = "ALL_TRAFFIC"
@@ -117,15 +117,15 @@ resource "google_cloud_run_v2_service" "test_service" {
         <<-EOT
           apk add --no-cache redis python3
           echo "--- Starting Redis connectivity test ---"
-          if redis-cli -h ${google_redis_instance.test_redis.host} PING | grep -q PONG; then
+          if redis-cli -h ${google_redis_instance.redis_instance.host} PING | grep -q PONG; then
             echo "--- SUCCESS: Connected to Redis ---"
             STATUS="✅ SUCCESS"
-            DETAILS="Successfully connected to Redis (${google_redis_instance.test_redis.host}) and received PONG."
+            DETAILS="Successfully connected to Redis (${google_redis_instance.redis_instance.host}) and received PONG."
             CLASS="success"
           else
             echo "--- FAILURE: Could not connect to Redis ---"
             STATUS="❌ FAILURE"
-            DETAILS="Could not connect to Redis. The host ${google_redis_instance.test_redis.host} was not reachable."
+            DETAILS="Could not connect to Redis. The host ${google_redis_instance.redis_instance.host} was not reachable."
             CLASS="failure"
           fi
 
@@ -181,12 +181,12 @@ print('Starting HTTP server on port 8080...')
 with socketserver.TCPServer(('', 8080), TestHandler) as httpd:
     httpd.serve_forever()
 "
-        EOT
+      EOT
       ]
       ports {
         container_port = 8080
       }
     }
   }
-  depends_on = [google_project_iam_member.redis_client]
+  depends_on = [google_project_iam_member.cloudrun_redis_access]
 }
