@@ -92,7 +92,7 @@ resource "google_service_networking_connection" "peering" {
 }
 
 resource "google_compute_global_address" "vertex_peering_range" {
-  name          = "vertex-peering-range"
+  name          = "test-sc-7-peering-range"
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   prefix_length = 24
