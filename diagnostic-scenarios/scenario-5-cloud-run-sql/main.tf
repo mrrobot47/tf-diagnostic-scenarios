@@ -151,8 +151,8 @@ class TestHandler(http.server.SimpleHTTPRequestHandler):
         html = '''<!DOCTYPE html>
 <html>
 <head>
-    <title>Scenario 5: Cloud Run + Cloud SQL Test</title>
-    <style>
+    <meta charset="utf-8">
+    <title>Scenario 5: Cloud Run + Cloud SQL Test</title>    <style>
         body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
         .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .success { color: #28a745; }

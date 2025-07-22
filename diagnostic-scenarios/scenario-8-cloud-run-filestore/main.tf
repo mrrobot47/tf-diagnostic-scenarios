@@ -118,59 +118,92 @@ resource "google_cloud_run_v2_service" "cloudrun_filestore_connectivity_tester" 
 
     containers {
       image = "python:3.9-slim"
-      
+
       volume_mounts {
         name       = "nfs-data-volume"
         mount_path = "/mnt/data"
       }
-      
+
       command = ["/bin/bash", "-c"]
       args = [
         <<-EOT
-          echo "--- Creating test file in NFS mount ---"
-          echo "Hello from Filestore at $(date)" > /mnt/data/test.txt
-          
-          echo "--- Starting Python HTTP server ---"
-          cat <<EOF > /server.py
+        # Step 1: Test writing to the NFS mount
+        TEST_FILE="/mnt/data/test-$(date +%s).txt"
+        echo "Hello from Cloud Run at $(date)" > $TEST_FILE
+
+        # Step 2: Verify the write and set status
+        if [ -s "$TEST_FILE" ]; then
+          echo "--- SUCCESS: File written to NFS mount successfully ---"
+          export STATUS="✅ SUCCESS"
+          FILE_CONTENT=$(cat $TEST_FILE)
+          FILE_LIST=$(ls -l /mnt/data)
+          export DETAILS="<p>Successfully wrote to <strong>$TEST_FILE</strong>.</p><p>Content:</p><pre>$FILE_CONTENT</pre><p>Full Directory Listing:</p><pre>$FILE_LIST</pre>"
+          export CLASS="success"
+          rm $TEST_FILE # Clean up
+        else
+          echo "--- FAILURE: Could not write to NFS mount ---"
+          export STATUS="❌ FAILURE"
+          export DETAILS="Failed to write test file to /mnt/data. Check NFS mount configuration and permissions."
+          export CLASS="failure"
+        fi
+
+        # Step 3: Create and start the Python HTTP server
+        cat <<EOF > /server.py
 import http.server
 import socketserver
+import datetime
 import os
 
-PORT = 8080
-MOUNT_PATH = '/mnt/data'
-
-class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
+class TestHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
-        if self.path == '/':
-            self.send_response(200)
-            self.send_header("Content-type", "text/html")
-            self.end_headers()
-            
-            html = "<h1>✅ SUCCESS: Filestore Mount Verified</h1>"
-            html += "<h2>Contents of /mnt/data:</h2>"
-            try:
-                files = os.listdir(MOUNT_PATH)
-                if not files:
-                    html += "<p>Directory is empty.</p>"
-                else:
-                    html += "<ul>"
-                    for file in files:
-                        html += f"<li>{file}</li>"
-                    html += "</ul>"
-            except Exception as e:
-                html += f"<p><b>Error reading directory:</b> {e}</p>"
-            
-            self.wfile.write(bytes(html, "utf8"))
-        else:
-            super().do_GET()
+        status = os.environ.get('STATUS', 'Unknown Status')
+        details = os.environ.get('DETAILS', 'No details available.')
+        css_class = os.environ.get('CLASS', '')
 
-Handler = MyHttpRequestHandler
+        html = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Scenario 8: Cloud Run + Filestore Connectivity</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }}
+        .container {{ max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+        .success {{ color: #28a745; }}
+        .failure {{ color: #dc3545; }}
+        .status {{ font-size: 28px; font-weight: bold; margin: 20px 0; }}
+        .details {{ background: #f8f9fa; padding: 20px; border-radius: 4px; margin: 20px 0; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; }}
+        .info {{ font-size: 14px; color: #666; margin-top: 20px; line-height: 1.6; }}
+        pre {{ white-space: pre-wrap; word-wrap: break-word; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1> Scenario 8: Cloud Run + Filestore (NFS Mount)</h1>
+        <div class="status {css_class}">{status}</div>
+        <div class="details">{details}</div>
+        <div class="info">
+            <strong> Architecture Tested:</strong><br>
+            • Cloud Run service with a mounted NFS volume<br>
+            • Filestore instance on the same VPC<br>
+            • VPC network with a dedicated subnet<br>
+            • Private Service Access connection for Filestore<br><br>
+            <strong> Test Method:</strong> Attempting to write and read a file from the NFS mount within the Cloud Run container.<br>
+            <strong>⏱️ Test Time:</strong> {datetime.datetime.now()}
+        </div>
+    </div>
+</body>
+</html>'''
 
-with socketserver.TCPServer(("", PORT), Handler) as httpd:
-    print("serving at port", PORT)
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html; charset=utf-8')
+        self.end_headers()
+        self.wfile.write(html.encode('utf-8'))
+
+print('Starting HTTP server on port 8080...')
+with socketserver.TCPServer(('', 8080), TestHandler) as httpd:
     httpd.serve_forever()
 EOF
-          python3 /server.py
+        python3 /server.py
         EOT
       ]
     }

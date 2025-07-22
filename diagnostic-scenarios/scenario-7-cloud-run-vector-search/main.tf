@@ -153,7 +153,7 @@ except Exception as e:
     print(f'Error: {e}', file=sys.stderr)
     sys.exit(1)
 " > /tmp/vertex_result.log 2>&1
-        
+
         # Step 3: Set and export status variables based on test result
         if [ $? -eq 0 ]; then
           echo "--- SUCCESS: Connected to Vertex AI ---"
@@ -184,6 +184,7 @@ class TestHandler(http.server.SimpleHTTPRequestHandler):
         html = f'''<!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
     <title>Scenario 7: Cloud Run + Vertex AI Connectivity</title>
     <style>
         body {{ font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }}
@@ -249,6 +250,7 @@ with socketserver.TCPServer(('', 8080), TestHandler) as httpd:
       }
       resources {
         limits = {
+          "cpu"    = "1000m"
           "memory" = "1Gi"
         }
       }
