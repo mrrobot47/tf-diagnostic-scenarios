@@ -1,5 +1,5 @@
-output "cloud_run_service_url" {
-  value       = google_cloud_run_v2_service.test_service.uri
+output "cloudrun_vector_search_connectivity_tester_url" {
+  value       = google_cloud_run_v2_service.cloudrun_vector_search_connectivity_tester.uri
   description = "URL of the deployed test service. Use the authenticated_curl_command to test."
 }
 
@@ -10,5 +10,5 @@ output "verification_command_logs" {
 
 output "authenticated_curl_command" {
   description = "Run this command to test the service endpoint with an authenticated request."
-  value       = "curl -H \"Authorization: Bearer $(gcloud auth print-identity-token)\" ${google_cloud_run_v2_service.test_service.uri}"
+  value       = "curl -H \"Authorization: Bearer $(gcloud auth print-identity-token)\" ${google_cloud_run_v2_service.cloudrun_vector_search_connectivity_tester.uri}"
 }

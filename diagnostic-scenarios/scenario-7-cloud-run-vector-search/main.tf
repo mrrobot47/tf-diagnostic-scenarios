@@ -23,29 +23,29 @@ resource "google_project_service" "apis" {
   disable_on_destroy = false
 }
 
-resource "google_compute_network" "test_vpc" {
+resource "google_compute_network" "vpc" {
   name                    = "test-sc-7-network"
   auto_create_subnetworks = false
   depends_on              = [google_project_service.apis]
 }
 
-resource "google_compute_subnetwork" "test_subnet" {
+resource "google_compute_subnetwork" "cloudrun_subnet" {
   name                     = "test-sc-7-subnet"
   ip_cidr_range            = "10.8.0.0/24"
   region                   = var.region
-  network                  = google_compute_network.test_vpc.id
+  network                  = google_compute_network.vpc.id
   private_ip_google_access = true # CRITICAL for this test
 }
 
-resource "google_compute_router" "test_router" {
+resource "google_compute_router" "nat_router" {
   name    = "test-sc-7-router"
   region  = var.region
-  network = google_compute_network.test_vpc.id
+  network = google_compute_network.vpc.id
 }
 
-resource "google_compute_router_nat" "test_nat" {
+resource "google_compute_router_nat" "nat" {
   name   = "test-sc-7-nat"
-  router = google_compute_router.test_router.name
+  router = google_compute_router.nat_router.name
   region = var.region
 
   nat_ip_allocate_option             = "AUTO_ONLY"
@@ -57,7 +57,7 @@ resource "google_compute_router_nat" "test_nat" {
   }
 }
 
-resource "google_storage_bucket" "index_bucket" {
+resource "google_storage_bucket" "vertex_index_bucket" {
   name          = "test-sc-7-index-bucket"
   location      = var.region
   force_destroy = true
@@ -67,7 +67,7 @@ resource "google_vertex_ai_index" "test_index" {
   display_name = "test-sc-7-index"
   region       = var.region
   metadata {
-    contents_delta_uri = "gs://${google_storage_bucket.index_bucket.name}"
+    contents_delta_uri = "gs://${google_storage_bucket.vertex_index_bucket.name}"
     config {
       dimensions              = 1
       approximate_neighbors_count = 5
@@ -83,34 +83,34 @@ resource "google_vertex_ai_index" "test_index" {
   depends_on = [google_project_service.apis]
 }
 
-resource "google_vertex_ai_index_endpoint" "test_endpoint" {
+resource "google_vertex_ai_index_endpoint" "vertex_endpoint" {
   display_name            = "test-sc-7-endpoint"
   region                  = var.region
   public_endpoint_enabled = true
   depends_on = [google_project_service.apis]
 }
 
-resource "google_service_account" "test_sa" {
+resource "google_service_account" "cloudrun_sa" {
   account_id   = "test-sc-7-sa"
   display_name = "Test Scenario 7 Service Account"
 }
 
-resource "google_project_iam_member" "ai_user" {
+resource "google_project_iam_member" "vertex_ai_user" {
   project = var.project_id
   role    = "roles/aiplatform.user"
-  member  = "serviceAccount:${google_service_account.test_sa.email}"
+  member  = "serviceAccount:${google_service_account.cloudrun_sa.email}"
 }
 
-resource "google_cloud_run_v2_service" "test_service" {
+resource "google_cloud_run_v2_service" "cloudrun_vector_search_connectivity_tester" {
   name     = "test-sc-7-vector-search-connect"
   location = var.region
 
   template {
-    service_account = google_service_account.test_sa.email
+    service_account = google_service_account.cloudrun_sa.email
     vpc_access {
       network_interfaces {
-        network    = google_compute_network.test_vpc.id
-        subnetwork = google_compute_subnetwork.test_subnet.id
+        network    = google_compute_network.vpc.id
+        subnetwork = google_compute_subnetwork.cloudrun_subnet.id
       }
       egress = "ALL_TRAFFIC"
     }
@@ -155,12 +155,12 @@ except Exception as e:
       }
       env {
         name = "ENDPOINT_ID"
-        value = google_vertex_ai_index_endpoint.test_endpoint.name
+        value = google_vertex_ai_index_endpoint.vertex_endpoint.name
       }
       ports {
         container_port = 8080
       }
     }
   }
-  depends_on = [google_project_iam_member.ai_user, google_vertex_ai_index_endpoint.test_endpoint]
+  depends_on = [google_project_iam_member.vertex_ai_user, google_vertex_ai_index_endpoint.vertex_endpoint]
 }
