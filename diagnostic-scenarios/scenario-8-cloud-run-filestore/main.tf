@@ -24,53 +24,53 @@ resource "google_project_service" "apis" {
   disable_on_destroy = false
 }
 
-resource "google_compute_network" "test_vpc" {
+resource "google_compute_network" "vpc" {
   name                    = "test-sc-8-network"
   auto_create_subnetworks = false
   depends_on              = [google_project_service.apis]
 }
 
-resource "google_compute_subnetwork" "test_subnet" {
+resource "google_compute_subnetwork" "cloudrun_subnet" {
   name          = "test-sc-8-subnet"
   ip_cidr_range = "10.8.0.0/24"
   region        = var.region
-  network       = google_compute_network.test_vpc.id
+  network       = google_compute_network.vpc.id
 }
 
-resource "google_compute_global_address" "private_ip_for_google_services" {
+resource "google_compute_global_address" "private_ip_google_services" {
   name          = "test-sc-8-private-ip"
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   prefix_length = 16
-  network       = google_compute_network.test_vpc.id
+  network       = google_compute_network.vpc.id
 }
 
 resource "google_service_networking_connection" "private_vpc_connection" {
-  network                 = google_compute_network.test_vpc.id
+  network                 = google_compute_network.vpc.id
   service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.private_ip_for_google_services.name]
+  reserved_peering_ranges = [google_compute_global_address.private_ip_google_services.name]
   deletion_policy         = "ABANDON"
 }
 
-resource "google_compute_router" "test_router" {
+resource "google_compute_router" "nat_router" {
   name    = "test-sc-8-router"
   region  = var.region
-  network = google_compute_network.test_vpc.id
+  network = google_compute_network.vpc.id
 }
 
-resource "google_compute_router_nat" "test_nat" {
+resource "google_compute_router_nat" "nat" {
   name                               = "test-sc-8-nat-gateway"
-  router                             = google_compute_router.test_router.name
+  router                             = google_compute_router.nat_router.name
   region                             = var.region
   source_subnetwork_ip_ranges_to_nat = "LIST_OF_SUBNETWORKS"
   nat_ip_allocate_option             = "AUTO_ONLY"
   subnetwork {
-    name                    = google_compute_subnetwork.test_subnet.id
+    name                    = google_compute_subnetwork.cloudrun_subnet.id
     source_ip_ranges_to_nat = ["ALL_IP_RANGES"]
   }
 }
 
-resource "google_filestore_instance" "test_nfs" {
+resource "google_filestore_instance" "filestore_instance" {
   name     = "test-sc-8-nfs"
   location = var.zone # Filestore is a zonal resource
   tier     = "BASIC_HDD"
@@ -81,29 +81,29 @@ resource "google_filestore_instance" "test_nfs" {
   }
 
   networks {
-    network = google_compute_network.test_vpc.id
+    network = google_compute_network.vpc.id
     modes   = ["MODE_IPV4"]
   }
 
   depends_on = [google_service_networking_connection.private_vpc_connection]
 }
 
-resource "google_service_account" "test_sa" {
+resource "google_service_account" "cloudrun_sa" {
   account_id   = "test-sc-8-sa"
   display_name = "Test Scenario 8 Service Account"
 }
 
-resource "google_cloud_run_v2_service" "test_service" {
+resource "google_cloud_run_v2_service" "cloudrun_filestore_connectivity_tester" {
   name     = "test-sc-8-filestore-mount"
   location = var.region
 
   template {
-    service_account = google_service_account.test_sa.email
+    service_account = google_service_account.cloudrun_sa.email
 
     vpc_access {
       network_interfaces {
-        network    = google_compute_network.test_vpc.id
-        subnetwork = google_compute_subnetwork.test_subnet.id
+        network    = google_compute_network.vpc.id
+        subnetwork = google_compute_subnetwork.cloudrun_subnet.id
       }
       egress = "ALL_TRAFFIC"
     }
@@ -111,7 +111,7 @@ resource "google_cloud_run_v2_service" "test_service" {
     volumes {
       name = "nfs-data-volume"
       nfs {
-        server    = google_filestore_instance.test_nfs.networks[0].ip_addresses[0]
+        server    = google_filestore_instance.filestore_instance.networks[0].ip_addresses[0]
         path      = "/data"
         read_only = false
       }
@@ -176,5 +176,5 @@ EOF
       ]
     }
   }
-  depends_on = [google_filestore_instance.test_nfs, google_compute_router_nat.test_nat]
+  depends_on = [google_filestore_instance.filestore_instance, google_compute_router_nat.nat]
 }

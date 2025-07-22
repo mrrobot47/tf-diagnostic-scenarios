@@ -5,10 +5,10 @@ output "verification_command" {
 
 output "authenticated_curl_command" {
   description = "Command to test the service with an authenticated user."
-  value       = "echo 'Visit this URL in your browser:'; echo 'curl -H \"Authorization: Bearer $(gcloud auth print-identity-token)\" ${google_cloud_run_v2_service.test_service.uri}'"
+  value       = "echo 'Visit this URL in your browser:'; echo 'curl -H \"Authorization: Bearer $(gcloud auth print-identity-token)\" ${google_cloud_run_v2_service.cloudrun_filestore_connectivity_tester.uri}'"
 }
 
-output "service_url" {
+output "cloudrun_filestore_connectivity_tester_url" {
     description = "The URL of the Cloud Run service."
-    value = google_cloud_run_v2_service.test_service.uri
+    value = google_cloud_run_v2_service.cloudrun_filestore_connectivity_tester.uri
 }
