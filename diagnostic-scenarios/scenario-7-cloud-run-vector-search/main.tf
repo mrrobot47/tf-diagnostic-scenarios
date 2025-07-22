@@ -86,7 +86,8 @@ resource "google_vertex_ai_index" "test_index" {
 resource "google_vertex_ai_index_endpoint" "vertex_endpoint" {
   display_name            = "test-sc-7-endpoint"
   region                  = var.region
-  public_endpoint_enabled = true
+  public_endpoint_enabled = false
+  network                 = google_compute_network.vpc.id
   depends_on = [google_project_service.apis]
 }
 
