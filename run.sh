@@ -178,6 +178,16 @@ get_scenario_vars() {
                 export ZONE
             fi
             ;;
+        8)
+            if [ -z "$ZONE" ]; then
+                read -r -p "Enter the Zone for the Filestore instance (e.g., us-central1-a): " ZONE
+                if [ -z "$ZONE" ]; then
+                    ZONE="${REGION}-a"
+                fi
+                echo "ZONE=${ZONE}" >> .env
+                export ZONE
+            fi
+            ;;
     esac
 }
 
@@ -200,6 +210,9 @@ create_tfvars() {
             echo "domain_name = \"${DOMAIN_NAME}\"" >> "${scenario_dir}/terraform.tfvars"
             ;;
         4)
+            echo "zone = \"${ZONE}\"" >> "${scenario_dir}/terraform.tfvars"
+            ;;
+        8)
             echo "zone = \"${ZONE}\"" >> "${scenario_dir}/terraform.tfvars"
             ;;
     esac
@@ -278,6 +291,38 @@ run_scenario() {
                     print_error "Verification failed."
                 fi
                 ;;
+            5)
+                local url
+                url=$(terraform output -raw service_url)
+                print_success "Cloud Run + Cloud SQL deployed. Service URL: ${url}"
+                local curl_cmd
+                curl_cmd=$(terraform output -raw authenticated_curl_command)
+                print_info "Test with: ${curl_cmd}"
+                ;;
+            6)
+                local url
+                url=$(terraform output -raw cloud_run_service_url)
+                print_success "Cloud Run + Redis deployed. Service URL: ${url}"
+                local curl_cmd
+                curl_cmd=$(terraform output -raw authenticated_curl_command)
+                print_info "Test with: ${curl_cmd}"
+                ;;
+            7)
+                local url
+                url=$(terraform output -raw cloud_run_service_url)
+                print_success "Cloud Run + Vertex AI Vector Search deployed. Service URL: ${url}"
+                local curl_cmd
+                curl_cmd=$(terraform output -raw authenticated_curl_command)
+                print_info "Test with: ${curl_cmd}"
+                ;;
+            8)
+                local url
+                url=$(terraform output -raw service_url)
+                print_success "Cloud Run + Filestore deployed. Service URL: ${url}"
+                local curl_cmd
+                curl_cmd=$(terraform output -raw authenticated_curl_command)
+                print_info "Test with: ${curl_cmd}"
+                ;;
             *)
                 print_success "Deployment successful (manual verification may be needed)."
                 ;;
@@ -335,12 +380,16 @@ main_menu() {
         echo "2. Scenario 2: GCE + External LB"
         echo "3. Scenario 3: VPC Connector"
         echo "4. Scenario 4: Private GCE + Cloud NAT"
+        echo "5. Scenario 5: Cloud Run + Cloud SQL"
+        echo "6. Scenario 6: Cloud Run + Redis"
+        echo "7. Scenario 7: Cloud Run + Vertex AI Vector Search"
+        echo "8. Scenario 8: Cloud Run + Filestore"
         echo "9. Destroy Resources Menu"
         echo "0. Exit"
         read -r -p "Select an option: " choice
 
         case $choice in
-            1|2|3|4)
+            1|2|3|4|5|6|7|8)
                 run_scenario "$choice"
                 ;;
             9)
@@ -365,10 +414,14 @@ destroy_menu() {
         echo "2. Destroy Scenario 2"
         echo "3. Destroy Scenario 3"
         echo "4. Destroy Scenario 4"
+        echo "5. Destroy Scenario 5"
+        echo "6. Destroy Scenario 6"
+        echo "7. Destroy Scenario 7"
+        echo "8. Destroy Scenario 8"
         echo "0. Back to Main Menu"
         read -r -p "Select a scenario to destroy: " choice
 
-        if [ "$choice" -ge 1 ] && [ "$choice" -le 4 ]; then
+        if [ "$choice" -ge 1 ] && [ "$choice" -le 8 ]; then
             local scenario_dir
             scenario_dir=$(find diagnostic-scenarios -maxdepth 1 -type d -name "scenario-${choice}-*" | head -n 1)
             if [ -n "$scenario_dir" ] && [ -d "$scenario_dir" ]; then
