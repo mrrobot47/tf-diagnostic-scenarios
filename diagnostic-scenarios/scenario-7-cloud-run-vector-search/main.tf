@@ -83,12 +83,28 @@ resource "google_vertex_ai_index" "test_index" {
   depends_on = [google_project_service.apis]
 }
 
+data "google_project" "project" {}
+
+resource "google_service_networking_connection" "peering" {
+  network                 = google_compute_network.vpc.id
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.vertex_peering_range.name]
+}
+
+resource "google_compute_global_address" "vertex_peering_range" {
+  name          = "vertex-peering-range"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = 24
+  network       = google_compute_network.vpc.id
+}
+
 resource "google_vertex_ai_index_endpoint" "vertex_endpoint" {
   display_name            = "test-sc-7-endpoint"
   region                  = var.region
   public_endpoint_enabled = false
-  network                 = google_compute_network.vpc.id
-  depends_on = [google_project_service.apis]
+  network                 = "projects/${data.google_project.project.number}/global/networks/${google_compute_network.vpc.name}"
+  depends_on = [google_project_service.apis, google_service_networking_connection.peering]
 }
 
 resource "google_service_account" "cloudrun_sa" {
@@ -116,34 +132,96 @@ resource "google_cloud_run_v2_service" "cloudrun_vector_search_connectivity_test
       egress = "ALL_TRAFFIC"
     }
     containers {
-      image   = "gcr.io/google.com/cloudsdktool/google-cloud-cli:slim"
-      command = ["/bin/bash", "-c"]
+      image   = "gcr.io/google.com/cloudsdktool/google-cloud-cli:alpine"
+      command = ["/bin/sh", "-c"]
       args = [
         <<-EOT
-          apt-get update && apt-get install -y python3-pip && pip3 install google-cloud-aiplatform
-          python3 -c "
-import os
-import sys
+        # Step 1: Install dependencies
+        apk add --no-cache python3 py3-pip && python3 -m pip install --no-cache-dir --break-system-packages google-cloud-aiplatform
+
+        # Step 2: Run connectivity test and capture result
+        echo "--- Running Vertex AI Connectivity Test ---"
+        python3 -c "
+import os, sys
 from google.cloud import aiplatform
-
-print('--- Attempting to connect to Vertex AI Vector Search Endpoint ---')
-
-project_id = os.environ.get('PROJECT_ID')
-region = os.environ.get('REGION')
-endpoint_id = os.environ.get('ENDPOINT_ID')
-
 try:
-    aiplatform.init(project=project_id, location=region)
-    endpoint = aiplatform.MatchingEngineIndexEndpoint(endpoint_name=endpoint_id)
-    print(f'--- SUCCESS: Successfully initialized client and found Vertex AI Index Endpoint: {endpoint.display_name} ---')
-    with open('index.html', 'w') as f:
-        f.write('<h1>SUCCESS: Successfully initialized client and found Vertex AI Index Endpoint</h1>')
+    aiplatform.init(project=os.environ.get('PROJECT_ID'), location=os.environ.get('REGION'))
+    endpoint = aiplatform.MatchingEngineIndexEndpoint(index_endpoint_name=os.environ.get('ENDPOINT_ID'))
+    print(f'Successfully found endpoint: {endpoint.display_name}')
+    sys.exit(0)
 except Exception as e:
-    print(f'--- FAILURE: Could not connect to Vertex AI Endpoint. Error: {e} ---', file=sys.stderr)
-    with open('index.html', 'w') as f:
-        f.write(f'<h1>FAILURE: Could not connect to Vertex AI Endpoint. Error: {e}</h1>')
+    print(f'Error: {e}', file=sys.stderr)
+    sys.exit(1)
+" > /tmp/vertex_result.log 2>&1
+        
+        # Step 3: Set and export status variables based on test result
+        if [ $? -eq 0 ]; then
+          echo "--- SUCCESS: Connected to Vertex AI ---"
+          export STATUS="✅ SUCCESS"
+          export DETAILS=$(cat /tmp/vertex_result.log)
+          export CLASS="success"
+        else
+          echo "--- FAILURE: Could not connect to Vertex AI ---"
+          export STATUS="❌ FAILURE"
+          export DETAILS=$(cat /tmp/vertex_result.log)
+          export CLASS="failure"
+        fi
+
+        # Step 4: Start the Python HTTP server
+        python3 -c "
+import http.server
+import socketserver
+import datetime
+import os
+
+class TestHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        # Read status from environment variables
+        status = os.environ.get('STATUS', 'Unknown Status')
+        details = os.environ.get('DETAILS', 'No details available.')
+        css_class = os.environ.get('CLASS', '')
+
+        html = f'''<!DOCTYPE html>
+<html>
+<head>
+    <title>Scenario 7: Cloud Run + Vertex AI Connectivity</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }}
+        .container {{ max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+        .success {{ color: #28a745; }}
+        .failure {{ color: #dc3545; }}
+        .status {{ font-size: 28px; font-weight: bold; margin: 20px 0; }}
+        .details {{ background: #f8f9fa; padding: 20px; border-radius: 4px; margin: 20px 0; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; }}
+        .info {{ font-size: 14px; color: #666; margin-top: 20px; line-height: 1.6; }}
+    </style>
+</head>
+<body>
+    <div class=\"container\">
+        <h1> Scenario 7: Cloud Run + Vertex AI (VPC Peering)</h1>
+        <div class=\"status {css_class}\">{status}</div>
+        <div class=\"details\">{details}</div>
+        <div class=\"info\">
+            <strong> Architecture Tested:</strong><br>
+            • Cloud Run service with VPC Egress<br>
+            • Vertex AI Index Endpoint with a private endpoint<br>
+            • VPC network with a dedicated subnet<br>
+            • VPC Peering between the VPC and Vertex AI services<br><br>
+            <strong> Test Method:</strong> Real connection attempt from Cloud Run to the Vertex AI private endpoint.<br>
+            <strong>⏱️ Test Time:</strong> {datetime.datetime.now()}
+        </div>
+    </div>
+</body>
+</html>'''
+
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+        self.wfile.write(html.encode())
+
+print('Starting HTTP server on port 8080...')
+with socketserver.TCPServer(('', 8080), TestHandler) as httpd:
+    httpd.serve_forever()
 "
-          python3 -m http.server 8080
         EOT
       ]
       env {
@@ -160,6 +238,19 @@ except Exception as e:
       }
       ports {
         container_port = 8080
+      }
+      startup_probe {
+        timeout_seconds   = 240
+        period_seconds    = 240
+        failure_threshold = 1
+        tcp_socket {
+          port = 8080
+        }
+      }
+      resources {
+        limits = {
+          "memory" = "1Gi"
+        }
       }
     }
   }
