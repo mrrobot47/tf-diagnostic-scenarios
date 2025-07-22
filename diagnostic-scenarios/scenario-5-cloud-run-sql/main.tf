@@ -24,29 +24,29 @@ resource "google_project_service" "apis" {
   disable_on_destroy = false
 }
 
-resource "google_compute_network" "test_vpc" {
-  name                    = "test-sc-5-network"
+resource "google_compute_network" "vpc" {
+  name                    = "test-sc-5-vpc"
   auto_create_subnetworks = false
   depends_on              = [google_project_service.apis]
 }
 
-resource "google_compute_subnetwork" "test_subnet" {
-  name          = "test-sc-5-subnet"
+resource "google_compute_subnetwork" "cloudrun_subnet" {
+  name          = "test-sc-5-cloudrun-subnet"
   ip_cidr_range = "10.8.0.0/24"
   region        = var.region
-  network       = google_compute_network.test_vpc.id
+  network       = google_compute_network.vpc.id
 }
 
 # Add Cloud NAT for internet access
-resource "google_compute_router" "test_router" {
-  name    = "test-sc-5-router"
+resource "google_compute_router" "nat_router" {
+  name    = "test-sc-5-nat-router"
   region  = var.region
-  network = google_compute_network.test_vpc.id
+  network = google_compute_network.vpc.id
 }
 
-resource "google_compute_router_nat" "test_nat" {
-  name   = "test-sc-5-nat"
-  router = google_compute_router.test_router.name
+resource "google_compute_router_nat" "internet_nat" {
+  name   = "test-sc-5-internet-nat"
+  router = google_compute_router.nat_router.name
   region = var.region
 
   nat_ip_allocate_option             = "AUTO_ONLY"
@@ -58,64 +58,65 @@ resource "google_compute_router_nat" "test_nat" {
   }
 }
 
-resource "google_compute_global_address" "test_sc_5_private_ip" {
-  name          = "test-sc-5-private-ip"
+resource "google_compute_global_address" "private_service_access" {
+  name          = "test-sc-5-private-service-access"
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   prefix_length = 16
-  network       = google_compute_network.test_vpc.id
+  network       = google_compute_network.vpc.id
 }
 
-resource "google_service_networking_connection" "private_vpc_connection" {
-  network                 = google_compute_network.test_vpc.id
+resource "google_service_networking_connection" "vpc_peering" {
+  network                 = google_compute_network.vpc.id
   service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.test_sc_5_private_ip.name]
+  reserved_peering_ranges = [google_compute_global_address.private_service_access.name]
+  depends_on = [google_compute_subnetwork.cloudrun_subnet]
 }
 
-resource "google_sql_database_instance" "test_db" {
-  name             = "test-sc-5-db"
+resource "google_sql_database_instance" "postgres_db" {
+  name             = "test-sc-5-postgres-db"
   region           = var.region
   database_version = "POSTGRES_14"
   settings {
     tier = "db-g1-small"
     ip_configuration {
       ipv4_enabled    = false
-      private_network = google_compute_network.test_vpc.id
+      private_network = google_compute_network.vpc.id
     }
   }
   deletion_protection = false
-  depends_on          = [google_service_networking_connection.private_vpc_connection]
+  depends_on          = [google_service_networking_connection.vpc_peering]
 }
 
-resource "google_sql_user" "test_user" {
+resource "google_sql_user" "db_user" {
   name     = "postgres"
-  instance = google_sql_database_instance.test_db.name
+  instance = google_sql_database_instance.postgres_db.name
   password = "test123"
 }
 
-resource "google_service_account" "test_sa" {
-  account_id   = "test-sc-5-sa"
-  display_name = "Test Scenario 5 Service Account"
+resource "google_service_account" "cloudrun_sa" {
+  account_id   = "test-sc-5-cloudrun-sa"
+  display_name = "Test Scenario 5 Cloud Run Service Account"
 }
 
-resource "google_project_iam_member" "sql_client" {
+resource "google_project_iam_member" "cloudrun_sql_access" {
   project = var.project_id
   role    = "roles/cloudsql.client"
-  member  = "serviceAccount:${google_service_account.test_sa.email}"
+  member  = "serviceAccount:${google_service_account.cloudrun_sa.email}"
 }
 
-resource "google_cloud_run_v2_service" "test_service" {
-  name     = "test-sc-5-sql-direct-connect"
+resource "google_cloud_run_v2_service" "cloudrun_sql_connectivity_tester" {
+  name     = "test-sc-5-sql-connectivity-tester"
   location = var.region
 
   template {
-    service_account = google_service_account.test_sa.email
-    
+    service_account = google_service_account.cloudrun_sa.email
+
     # Direct VPC Egress configuration
     vpc_access {
       network_interfaces {
-        network    = google_compute_network.test_vpc.id
-        subnetwork = google_compute_subnetwork.test_subnet.id
+        network    = google_compute_network.vpc.id
+        subnetwork = google_compute_subnetwork.cloudrun_subnet.id
         tags       = ["cloud-run-service"]
       }
       egress = "ALL_TRAFFIC"
@@ -128,10 +129,10 @@ resource "google_cloud_run_v2_service" "test_service" {
         <<-EOF
         apk add --no-cache postgresql-client python3 &&
         echo "--- Starting Cloud SQL connectivity test ---" &&
-        if PGPASSWORD=test123 psql -h ${google_sql_database_instance.test_db.private_ip_address} -p 5432 -U postgres -d postgres -c "SELECT 1 as test_connection;" > /tmp/sql_result.log 2>&1; then
+        if PGPASSWORD=test123 psql -h ${google_sql_database_instance.postgres_db.private_ip_address} -p 5432 -U postgres -d postgres -c "SELECT 1 as test_connection;" > /tmp/sql_result.log 2>&1; then
           echo "--- SUCCESS: Connected to Cloud SQL via Direct VPC Egress ---"
           STATUS="✅ SUCCESS"
-          DETAILS="Successfully connected to Cloud SQL (${google_sql_database_instance.test_db.private_ip_address}:5432) via Direct VPC Egress and executed SELECT 1."
+          DETAILS="Successfully connected to Cloud SQL (${google_sql_database_instance.postgres_db.private_ip_address}:5432) via Direct VPC Egress and executed SELECT 1."
           CLASS="success"
         else
           echo "--- FAILURE: Could not connect to Cloud SQL ---"
@@ -139,7 +140,7 @@ resource "google_cloud_run_v2_service" "test_service" {
           DETAILS="Could not connect to Cloud SQL. Error: $(cat /tmp/sql_result.log)"
           CLASS="failure"
         fi &&
-        
+
         python3 -c "
 import http.server
 import socketserver
@@ -182,7 +183,7 @@ class TestHandler(http.server.SimpleHTTPRequestHandler):
         html = html.replace('STATUS_PLACEHOLDER', '$STATUS')
         html = html.replace('DETAILS_PLACEHOLDER', '$DETAILS')
         html = html.replace('CLASS_PLACEHOLDER', '$CLASS')
-        
+
         self.send_response(200)
         self.send_header('Content-type', 'text/html')
         self.end_headers()
@@ -203,5 +204,5 @@ with socketserver.TCPServer(('', 8080), TestHandler) as httpd:
       }
     }
   }
-  depends_on = [google_project_iam_member.sql_client]
+  depends_on = [google_project_iam_member.cloudrun_sql_access]
 }
