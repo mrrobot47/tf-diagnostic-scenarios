@@ -35,8 +35,8 @@ resource "google_compute_subnetwork" "cloudrun_subnet" {
   ip_cidr_range = "10.8.0.0/24"
   region        = var.region
   network       = google_compute_network.vpc.id
+  depends_on    = [google_service_networking_connection.private_vpc_connection]
 }
-
 resource "google_compute_global_address" "private_ip_google_services" {
   name          = "test-sc-8-private-ip"
   purpose       = "VPC_PEERING"

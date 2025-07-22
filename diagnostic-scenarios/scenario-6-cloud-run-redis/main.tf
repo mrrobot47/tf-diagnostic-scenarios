@@ -35,8 +35,8 @@ resource "google_compute_subnetwork" "cloudrun_subnet" {
   ip_cidr_range = "10.8.0.0/24"
   region        = var.region
   network       = google_compute_network.vpc.id
+  depends_on    = [google_service_networking_connection.vpc_peering]
 }
-
 # Add Cloud NAT for internet access
 resource "google_compute_router" "nat_router" {
   name    = "test-sc-6-nat-router"
