@@ -1,0 +1,14 @@
+project_id      = "<YOUR_PROJECT_ID>"
+region          = "us-central1"
+test_user_email = "<your-google-email@example.com>"
+
+# --- CHOOSE ONE MODE ---
+
+# --- Option 1: Have Terraform create the OAuth Client (recommended for initial tests) ---
+create_oauth_client = true
+
+
+# --- Option 2: Use an existing OAuth Client (for restricted environments) ---
+# create_oauth_client = false
+# existing_oauth_client_id     = "1234567890-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com"
+# existing_oauth_client_secret = "GOCSPX-YourSecretValueHere"
