@@ -44,23 +44,23 @@ data "google_project" "current" {}
 
 # --- Conditional OAuth Client Creation ---
 
-resource "google_iap_brand" "project_brand" {
+resource "google_iap_brand" "test_sc_9_brand" {
   count             = var.create_oauth_client ? 1 : 0
   project           = var.project_id
   support_email     = "user:${var.oauth_support_email}"
-  application_title = "Cloud Run IAP Diagnostic Test"
+  application_title = "Test SC-9 IAP"
   depends_on        = [time_sleep.wait_for_api_propagation]
 }
 
-resource "google_iap_client" "project_client" {
+resource "google_iap_client" "test_sc_9_client" {
   count        = var.create_oauth_client ? 1 : 0
-  display_name = "Cloud Run IAP Test Client"
-  brand        = one(google_iap_brand.project_brand).name
+  display_name = "test-sc-9-iap-client"
+  brand        = one(google_iap_brand.test_sc_9_brand).name
 }
 
 # --- Cloud Run Service Configuration ---
 
-resource "google_cloud_run_v2_service" "iap_test_service" {
+resource "google_cloud_run_v2_service" "test_sc_9_service" {
   provider = google-beta
 
   name     = "test-sc-9-iap-hello"
@@ -76,14 +76,14 @@ resource "google_cloud_run_v2_service" "iap_test_service" {
       image = "gcr.io/cloudrun/hello"
     }
     labels = {
-      "iap-dependency" = var.create_oauth_client ? one(google_iap_client.project_client).client_id : "none"
+      "iap-dependency" = var.create_oauth_client ? one(google_iap_client.test_sc_9_client).client_id : "none"
     }
   }
 }
 
 # --- IAM Bindings ---
 
-resource "google_iap_web_iam_member" "user_access" {
+resource "google_iap_web_iam_member" "test_sc_9_user_access" {
   for_each = toset(var.iap_members)
   project  = var.project_id
   role     = "roles/iap.httpsResourceAccessor"
@@ -91,11 +91,11 @@ resource "google_iap_web_iam_member" "user_access" {
   depends_on = [time_sleep.wait_for_api_propagation]
 }
 
-resource "google_cloud_run_v2_service_iam_member" "iap_invoker" {
+resource "google_cloud_run_v2_service_iam_member" "test_sc_9_iap_invoker" {
   provider = google-beta
-  project  = google_cloud_run_v2_service.iap_test_service.project
-  location = google_cloud_run_v2_service.iap_test_service.location
-  name     = google_cloud_run_v2_service.iap_test_service.name
+  project  = google_cloud_run_v2_service.test_sc_9_service.project
+  location = google_cloud_run_v2_service.test_sc_9_service.location
+  name     = google_cloud_run_v2_service.test_sc_9_service.name
   role     = "roles/run.invoker"
   member   = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-iap.iam.gserviceaccount.com"
 }
