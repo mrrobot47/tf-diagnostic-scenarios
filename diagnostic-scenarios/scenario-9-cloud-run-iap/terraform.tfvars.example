@@ -1,6 +1,15 @@
-project_id      = "<YOUR_PROJECT_ID>"
-region          = "us-central1"
-test_user_email = "<your-google-email@example.com>"
+project_id = "<YOUR_PROJECT_ID>"
+region     = "us-central1"
+
+# The email address that will show up on the IAP consent screen.
+oauth_support_email = "<your-google-email@example.com>"
+
+# A list of users and/or groups who will be allowed to access the application.
+# You must include the 'user:' or 'group:' prefix.
+iap_members = [
+  "user:<your-google-email@example.com>",
+  # "group:<your-test-group@example.com>",
+]
 
 # --- CHOOSE ONE MODE ---
 

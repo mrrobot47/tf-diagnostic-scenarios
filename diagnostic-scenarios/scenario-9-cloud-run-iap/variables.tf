@@ -8,9 +8,28 @@ variable "region" {
   description = "The GCP region for the Cloud Run service."
 }
 
-variable "test_user_email" {
+# NEW: Replaces the old test_user_email
+variable "iap_members" {
+  type        = list(string)
+  description = "List of members to grant IAP access. Formats: 'user:email@example.com', 'group:team@example.com'."
+  
+  validation {
+    condition = alltrue([
+      for member in var.iap_members : can(regex("^(user|group|serviceAccount|domain):", member))
+    ])
+    error_message = "All members in iap_members must start with a valid prefix (e.g., 'user:', 'group:')."
+  }
+}
+
+# NEW: Dedicated variable for the OAuth support email
+variable "oauth_support_email" {
   type        = string
-  description = "The Google account email (e.g., yourname@example.com) to grant IAP access to."
+  description = "The email address to be displayed on the OAuth consent screen."
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", var.oauth_support_email))
+    error_message = "The provided email is not a valid email address format."
+  }
 }
 
 variable "create_oauth_client" {
