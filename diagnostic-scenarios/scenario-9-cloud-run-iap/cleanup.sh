@@ -1,10 +1,26 @@
 #!/bin/bash
-echo "This script provides a fallback for a failed 'terraform destroy'."
-echo "Please enter the required values."
+set -e
 
-read -p "Enter your Project ID: " PROJECT_ID
-read -p "Enter the Region (e.g., us-central1): " REGION
-read -p "Enter the test user email (e.g., your-email@example.com): " TEST_USER_EMAIL
+# Load from .env if available
+if [ -f "../../.env" ]; then
+    export $(grep -v '^#' ../../.env | xargs)
+fi
+if [ -f ".env" ]; then
+    export $(grep -v '^#' .env | xargs)
+fi
+
+echo "This script provides a fallback for a failed 'terraform destroy'."
+echo "Please enter the required values (will use environment variables if set)."
+
+if [ -z "$PROJECT_ID" ]; then
+    read -p "Enter your Project ID: " PROJECT_ID
+fi
+if [ -z "$REGION" ]; then
+    read -p "Enter the Region (e.g., us-central1): " REGION
+fi
+if [ -z "$TEST_USER_EMAIL" ]; then
+    read -p "Enter the test user email (e.g., your-email@example.com): " TEST_USER_EMAIL
+fi
 
 SERVICE_NAME="test-sc-9-iap-hello"
 IAP_MEMBER="user:${TEST_USER_EMAIL}"
