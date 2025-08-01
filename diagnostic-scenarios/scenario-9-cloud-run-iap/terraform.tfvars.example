@@ -14,10 +14,12 @@ iap_members = [
 # --- CHOOSE ONE MODE ---
 
 # --- Option 1: Have Terraform create the OAuth Client (recommended for initial tests) ---
+# ⚠️ This will fail in most restrictive GCP accounts (such as Google Cloud Skills Boost, Qwiklabs, or enterprise sandboxes) because creation of OAuth brands/clients is not permitted.
 create_oauth_client = true
 
-
 # --- Option 2: Use an existing OAuth Client (for restricted environments) ---
+# Set create_oauth_client = false and provide your existing OAuth client credentials below.
+# Note: If you do not have an existing OAuth client, this scenario is not compatible with your account.
 # create_oauth_client = false
 # existing_oauth_client_id     = "1234567890-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com"
 # existing_oauth_client_secret = "GOCSPX-YourSecretValueHere"
