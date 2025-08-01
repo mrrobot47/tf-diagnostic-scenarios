@@ -1,0 +1,41 @@
+# Cloud Build configuration for initial Open WebUI image build
+# Place this file in your project root directory
+
+steps:
+  # Step 1: Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-image'
+    args:
+      - 'build'
+      - '-t'
+      - '${_ARTIFACT_REGISTRY_URL}/open-webui:latest'
+      - '-f'
+      - 'Dockerfile'
+      - '.'
+
+  # Step 2: Push the latest tag
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-latest-image'
+    args:
+      - 'push'
+      - '${_ARTIFACT_REGISTRY_URL}/open-webui:latest'
+    waitFor: ['build-image']
+
+# Substitutions for environment-specific values (filled by Terraform)
+substitutions:
+  _ARTIFACT_REGISTRY_URL: 'us-central1-docker.pkg.dev/PROJECT_ID/REPO_NAME'
+
+# Build timeout (20 minutes)
+timeout: '1200s'
+
+# Build options
+options:
+  # Use high-CPU machine for faster builds
+  machineType: 'E2_HIGHCPU_8'
+  # Use Cloud Logging for better integration
+  logging: 'CLOUD_LOGGING_ONLY'
+
+# Image tags for organization
+tags:
+  - 'open-webui'
+  - 'initial-build'

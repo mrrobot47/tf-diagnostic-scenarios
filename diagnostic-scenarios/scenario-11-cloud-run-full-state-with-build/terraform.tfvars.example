@@ -1,0 +1,13 @@
+# terraform.tfvars for Scenario 11
+
+# GCP Configuration
+project_id = "your-gcp-project-id"
+region     = "us-central1"
+
+# User Configuration
+test_user_email = "your-email@example.com"
+
+# GitHub Repository Configuration
+github_repo_owner = "your-github-username"
+github_repo_name  = "your-openwebui-fork"
+github_branch     = "main"
