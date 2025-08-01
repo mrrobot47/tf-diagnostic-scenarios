@@ -188,6 +188,117 @@ get_scenario_vars() {
                 export ZONE
             fi
             ;;
+        9)
+            if [ -z "$OAUTH_SUPPORT_EMAIL" ]; then
+                read -r -p "Enter the OAuth support email for IAP consent screen: " OAUTH_SUPPORT_EMAIL
+                echo "OAUTH_SUPPORT_EMAIL=${OAUTH_SUPPORT_EMAIL}" >> .env
+                export OAUTH_SUPPORT_EMAIL
+            fi
+            if [ -z "$IAP_MEMBERS" ]; then
+                read -r -p "Enter IAP members (comma-separated, e.g. user:foo@bar.com,user:bar@baz.com): " IAP_MEMBERS
+                echo "IAP_MEMBERS=${IAP_MEMBERS}" >> .env
+                export IAP_MEMBERS
+            fi
+            if [ -z "$CREATE_OAUTH_CLIENT" ]; then
+                while true; do
+                    read -p "Should Terraform create the OAuth client? (y/n): " -n 1 -r
+                    echo
+                    if [ "$REPLY" = "y" ] || [ "$REPLY" = "Y" ]; then
+                        CREATE_OAUTH_CLIENT=true
+                        break
+                    elif [ "$REPLY" = "n" ] || [ "$REPLY" = "N" ]; then
+                        CREATE_OAUTH_CLIENT=false
+                        break
+                    else
+                        echo "Please enter 'y' or 'n' only."
+                    fi
+                done
+                echo "CREATE_OAUTH_CLIENT=${CREATE_OAUTH_CLIENT}" >> .env
+                export CREATE_OAUTH_CLIENT
+            fi
+            if [ "$CREATE_OAUTH_CLIENT" = false ]; then
+                if [ -z "$EXISTING_OAUTH_CLIENT_ID" ]; then
+                    read -r -p "Enter existing OAuth client ID: " EXISTING_OAUTH_CLIENT_ID
+                    echo "EXISTING_OAUTH_CLIENT_ID=${EXISTING_OAUTH_CLIENT_ID}" >> .env
+                    export EXISTING_OAUTH_CLIENT_ID
+                fi
+                if [ -z "$EXISTING_OAUTH_CLIENT_SECRET" ]; then
+                    read -r -p "Enter existing OAuth client secret: " EXISTING_OAUTH_CLIENT_SECRET
+                    echo "EXISTING_OAUTH_CLIENT_SECRET=${EXISTING_OAUTH_CLIENT_SECRET}" >> .env
+                    export EXISTING_OAUTH_CLIENT_SECRET
+                fi
+            fi
+            ;;
+        10)
+            if [ -z "$TEST_USER_EMAIL" ]; then
+                read -r -p "Enter the test user email for Cloud Run access: " TEST_USER_EMAIL
+                echo "TEST_USER_EMAIL=${TEST_USER_EMAIL}" >> .env
+                export TEST_USER_EMAIL
+            fi
+            ;;
+        11)
+            if [ -z "$TEST_USER_EMAIL" ]; then
+                read -r -p "Enter the test user email for Cloud Run access: " TEST_USER_EMAIL
+                echo "TEST_USER_EMAIL=${TEST_USER_EMAIL}" >> .env
+                export TEST_USER_EMAIL
+            fi
+            if [ -z "$GITHUB_REPO_OWNER" ]; then
+                read -r -p "Enter the GitHub repo owner: " GITHUB_REPO_OWNER
+                echo "GITHUB_REPO_OWNER=${GITHUB_REPO_OWNER}" >> .env
+                export GITHUB_REPO_OWNER
+            fi
+            if [ -z "$GITHUB_REPO_NAME" ]; then
+                read -r -p "Enter the GitHub repo name: " GITHUB_REPO_NAME
+                echo "GITHUB_REPO_NAME=${GITHUB_REPO_NAME}" >> .env
+                export GITHUB_REPO_NAME
+            fi
+            if [ -z "$GITHUB_BRANCH" ]; then
+                read -r -p "Enter the GitHub branch name: " GITHUB_BRANCH
+                echo "GITHUB_BRANCH=${GITHUB_BRANCH}" >> .env
+                export GITHUB_BRANCH
+            fi
+            ;;
+        12)
+            if [ -z "$TEST_USER_EMAIL" ]; then
+                read -r -p "Enter the test user email for Cloud Run access: " TEST_USER_EMAIL
+                echo "TEST_USER_EMAIL=${TEST_USER_EMAIL}" >> .env
+                export TEST_USER_EMAIL
+            fi
+            if [ -z "$USE_DEFAULT_NETWORK" ]; then
+                while true; do
+                    read -p "Use default network? (y/n, default n): " -n 1 -r
+                    echo
+                    if [ "$REPLY" = "y" ] || [ "$REPLY" = "Y" ]; then
+                        USE_DEFAULT_NETWORK=true
+                        break
+                    elif [ "$REPLY" = "n" ] || [ "$REPLY" = "N" ] || [ -z "$REPLY" ]; then
+                        USE_DEFAULT_NETWORK=false
+                        break
+                    else
+                        echo "Please enter 'y' or 'n' only."
+                    fi
+                done
+                echo "USE_DEFAULT_NETWORK=${USE_DEFAULT_NETWORK}" >> .env
+                export USE_DEFAULT_NETWORK
+            fi
+            if [ -z "$ENABLE_APIS_AUTOMATICALLY" ]; then
+                while true; do
+                    read -p "Enable APIs automatically? (y/n, default y): " -n 1 -r
+                    echo
+                    if [ "$REPLY" = "n" ] || [ "$REPLY" = "N" ]; then
+                        ENABLE_APIS_AUTOMATICALLY=false
+                        break
+                    elif [ "$REPLY" = "y" ] || [ "$REPLY" = "Y" ] || [ -z "$REPLY" ]; then
+                        ENABLE_APIS_AUTOMATICALLY=true
+                        break
+                    else
+                        echo "Please enter 'y' or 'n' only."
+                    fi
+                done
+                echo "ENABLE_APIS_AUTOMATICALLY=${ENABLE_APIS_AUTOMATICALLY}" >> .env
+                export ENABLE_APIS_AUTOMATICALLY
+            fi
+            ;;
     esac
 }
 
@@ -214,6 +325,37 @@ create_tfvars() {
             ;;
         8)
             echo "zone = \"${ZONE}\"" >> "${scenario_dir}/terraform.tfvars"
+            ;;
+        9)
+            echo "oauth_support_email = \"${OAUTH_SUPPORT_EMAIL}\"" >> "${scenario_dir}/terraform.tfvars"
+            # Convert comma-separated to quoted list
+            IFS=',' read -ra MEMBERS_ARR <<< "$IAP_MEMBERS"
+            echo -n "iap_members = [" >> "${scenario_dir}/terraform.tfvars"
+            for i in "${!MEMBERS_ARR[@]}"; do
+                m=$(echo "${MEMBERS_ARR[$i]}" | xargs)
+                if [ $i -gt 0 ]; then echo -n ", " >> "${scenario_dir}/terraform.tfvars"; fi
+                echo -n "\"$m\"" >> "${scenario_dir}/terraform.tfvars"
+            done
+            echo "]" >> "${scenario_dir}/terraform.tfvars"
+            echo "create_oauth_client = ${CREATE_OAUTH_CLIENT}" >> "${scenario_dir}/terraform.tfvars"
+            if [ "$CREATE_OAUTH_CLIENT" = false ]; then
+                echo "existing_oauth_client_id     = \"${EXISTING_OAUTH_CLIENT_ID}\"" >> "${scenario_dir}/terraform.tfvars"
+                echo "existing_oauth_client_secret = \"${EXISTING_OAUTH_CLIENT_SECRET}\"" >> "${scenario_dir}/terraform.tfvars"
+            fi
+            ;;
+        10)
+            echo "test_user_email = \"${TEST_USER_EMAIL}\"" >> "${scenario_dir}/terraform.tfvars"
+            ;;
+        11)
+            echo "test_user_email = \"${TEST_USER_EMAIL}\"" >> "${scenario_dir}/terraform.tfvars"
+            echo "github_repo_owner = \"${GITHUB_REPO_OWNER}\"" >> "${scenario_dir}/terraform.tfvars"
+            echo "github_repo_name  = \"${GITHUB_REPO_NAME}\"" >> "${scenario_dir}/terraform.tfvars"
+            echo "github_branch     = \"${GITHUB_BRANCH}\"" >> "${scenario_dir}/terraform.tfvars"
+            ;;
+        12)
+            echo "test_user_email = \"${TEST_USER_EMAIL}\"" >> "${scenario_dir}/terraform.tfvars"
+            echo "use_default_network = ${USE_DEFAULT_NETWORK}" >> "${scenario_dir}/terraform.tfvars"
+            echo "enable_apis_automatically = ${ENABLE_APIS_AUTOMATICALLY}" >> "${scenario_dir}/terraform.tfvars"
             ;;
     esac
 }
@@ -394,15 +536,19 @@ main_menu() {
         echo "6. Scenario 6: Cloud Run + Redis"
         echo "7. Scenario 7: Cloud Run + Vertex AI Vector Search"
         echo "8. Scenario 8: Cloud Run + Filestore"
-        echo "9. Destroy Resources Menu"
+        echo "9. Scenario 9: Cloud Run + IAP"
+        echo "10. Scenario 10: Cloud Run Full State"
+        echo "11. Scenario 11: Cloud Run Full State + Build"
+        echo "12. Scenario 12: Cloud Run Agent Engine"
+        echo "13. Destroy Resources Menu"
         echo "0. Exit"
         read -r -p "Select an option: " choice
 
         case $choice in
-            1|2|3|4|5|6|7|8)
+            1|2|3|4|5|6|7|8|9|10|11|12)
                 run_scenario "$choice"
                 ;;
-            9)
+            13)
                 destroy_menu
                 ;;
             0)
@@ -428,10 +574,14 @@ destroy_menu() {
         echo "6. Destroy Scenario 6"
         echo "7. Destroy Scenario 7"
         echo "8. Destroy Scenario 8"
+        echo "9. Destroy Scenario 9"
+        echo "10. Destroy Scenario 10"
+        echo "11. Destroy Scenario 11"
+        echo "12. Destroy Scenario 12"
         echo "0. Back to Main Menu"
         read -r -p "Select a scenario to destroy: " choice
 
-        if [ "$choice" -ge 1 ] && [ "$choice" -le 8 ]; then
+        if [ "$choice" -ge 1 ] && [ "$choice" -le 12 ]; then
             local scenario_dir
             scenario_dir=$(find diagnostic-scenarios -maxdepth 1 -type d -name "scenario-${choice}-*" | head -n 1)
             if [ -n "$scenario_dir" ] && [ -d "$scenario_dir" ]; then
@@ -457,7 +607,7 @@ cd "$(dirname "$0")" || exit
 # Argument parsing
 usage() {
     echo "Usage: $0 [SCENARIO_NUMBER] [--destroy|--no-destroy]"
-    echo "  SCENARIO_NUMBER: 1-8 (optional, if omitted, menu is shown)"
+    echo "  SCENARIO_NUMBER: 1-12 (optional, if omitted, menu is shown)"
     echo "  --destroy: Destroys resources after successful deployment (optional)"
     echo "  --no-destroy: Keeps resources and skips destroy prompt (optional)"
     echo "  --destroy and --no-destroy are mutually exclusive."
@@ -480,18 +630,17 @@ load_or_create_config
 SCENARIO_NUM=""
 DESTROY_MODE="prompt" # prompt, auto, skip
 
-if [ $# -ge 1 ]; then
-    case $1 in
-        [1-8])
-            SCENARIO_NUM="$1"
-            ;;
-        *)
-            usage
-            ;;
-    esac
-    if [ $# -ge 2 ]; then
-        case $2 in
-            --destroy|destroy|DESTROY|--DESTROY)
+    if [ $# -ge 1 ]; then
+        case $1 in
+            [1-9]|1[0-2])
+                SCENARIO_NUM="$1"
+                ;;
+            *)
+                usage
+                ;;
+        esac
+        if [ $# -ge 2 ]; then
+            case $2 in            --destroy|destroy|DESTROY|--DESTROY)
                 DESTROY_MODE="auto"
                 ;;
             --no-destroy|no-destroy|NO-DESTROY|--NO-DESTROY)
