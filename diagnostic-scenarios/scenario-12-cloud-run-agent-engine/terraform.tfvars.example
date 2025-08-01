@@ -1,0 +1,16 @@
+# Copy this file to terraform.tfvars and fill in your values
+
+# Required: Your GCP project ID
+project_id = "<PROJECT_ID>"
+
+# Required: Your Google account email for Cloud Run access
+test_user_email = "<TEST_USER_EMAIL>"
+
+# Optional: GCP region (defaults to us-central1)
+region = "us-central1"
+
+# Optional: Use default network if you have restrictive policies (defaults to false)
+use_default_network = false
+
+# Optional: Disable automatic API enabling if managed separately (defaults to true)
+enable_apis_automatically = true
