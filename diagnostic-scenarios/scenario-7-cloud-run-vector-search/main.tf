@@ -61,6 +61,8 @@ resource "google_storage_bucket" "vertex_index_bucket" {
   name          = "test-sc-7-index-bucket"
   location      = var.region
   force_destroy = true
+  public_access_prevention    = "enforced"
+  uniform_bucket_level_access = true
 }
 
 resource "google_vertex_ai_index" "test_index" {
